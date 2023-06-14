@@ -32,14 +32,6 @@ moveit::planning_interface::MoveGroupInterface::Plan plan_and_execute(moveit::pl
 
     bool success = (move_group_interface.plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 
-    ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
-
-    // ROS_INFO_NAMED("tutorial", "Visualizing plan 1 as trajectory line");
-    // visual_tools.publishAxisLabeled(pose, "end_pose");
-    // visual_tools.publishText(text_pose, planner, rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE);
-    // visual_tools.publishTrajectoryLine(my_plan.trajectory_, &joint_model_group);
-    // visual_tools.trigger();
-
     return my_plan;
 }
 
@@ -111,7 +103,7 @@ void removeCollisionObstacles(moveit::planning_interface::PlanningSceneInterface
     planning_scene_interface.removeCollisionObjects(ids);
 }
 
-moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_visual_tools::MoveItVisualTools &visual_tools, moveit::planning_interface::MoveGroupInterface::Plan plan, Eigen::Vector3d xyz)
+moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_visual_tools::MoveItVisualTools &visual_tools, moveit::planning_interface::MoveGroupInterface::Plan plan, std::string planning_group, Eigen::Vector3d xyz)
 {
 
     // REFERENCE: https://github.com/ros-planning/moveit/issues/1556
@@ -138,8 +130,11 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
 
     bool success_IK = true;
 
+    // YUMI_SPECIFIC
+    //  std::string gripper = planning_group == "right_arm" ? "gripper_r_base" : "gripper_l_base";
+    std::string gripper = std::string("gripper_") + planning_group[0] + std::string("_base");
+    ROS_INFO("Gripper: %s", gripper.c_str());
     // FIRST LOOPS TO SET THE MAXIMUM RANGE OF THE ARM
-    do
     {
         previous_max_scale = 0;
 
@@ -147,7 +142,7 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
         {
             // set joint positions of waypoint
             kinematic_state->setVariablePositions(joint_names, plan.trajectory_.joint_trajectory.points.at(i).positions);
-            current_end_effector_state = kinematic_state->getGlobalLinkTransform("gripper_r_base");
+            current_end_effector_state = kinematic_state->getGlobalLinkTransform(gripper);
 
             // FIRST LOOP TO FIND THE MAX TRANSLATION
 
@@ -175,8 +170,8 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
             visual_tools.publishAxisLabeled(target_pose, "Pose");
             visual_tools.trigger();
 
-            kinematic_state->setJointGroupPositions(kinematic_model->getJointModelGroup("right_arm"), previous_joint_values);
-            success_IK = kinematic_state->setFromIK(kinematic_model->getJointModelGroup("right_arm"), target_pose);
+            kinematic_state->setJointGroupPositions(kinematic_model->getJointModelGroup(planning_group), previous_joint_values);
+            success_IK = kinematic_state->setFromIK(kinematic_model->getJointModelGroup(planning_group), target_pose);
 
             std::stringstream tmp;
             tmp << i;
@@ -193,8 +188,9 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
 
             previous_max_scale = i <= mid_waypoint ? scale : previous_max_scale;
         }
-
-    } while (!success_IK);
+    }
+    while (!success_IK)
+        ;
 
     visual_tools.deleteAllMarkers();
 
@@ -202,7 +198,7 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
     {
         // set joint positions of waypoint
         kinematic_state->setVariablePositions(joint_names, plan.trajectory_.joint_trajectory.points.at(i).positions);
-        current_end_effector_state = kinematic_state->getGlobalLinkTransform("gripper_r_base");
+        current_end_effector_state = kinematic_state->getGlobalLinkTransform(gripper);
 
         bool success_IK = true;
         // FIRST LOOP TO FIND THE MAX TRANSLATION
@@ -231,8 +227,8 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
         visual_tools.publishAxisLabeled(target_pose, "Pose");
         visual_tools.trigger();
 
-        kinematic_state->setJointGroupPositions(kinematic_model->getJointModelGroup("right_arm"), previous_joint_values);
-        success_IK = kinematic_state->setFromIK(kinematic_model->getJointModelGroup("right_arm"), target_pose);
+        kinematic_state->setJointGroupPositions(kinematic_model->getJointModelGroup(planning_group), previous_joint_values);
+        success_IK = kinematic_state->setFromIK(kinematic_model->getJointModelGroup(planning_group), target_pose);
 
         std::stringstream tmp;
         tmp << i;
@@ -241,7 +237,7 @@ moveit::planning_interface::MoveGroupInterface::Plan exagerateTrajectory(moveit_
 
         visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
 
-        kinematic_state->copyJointGroupPositions(kinematic_model->getJointModelGroup("right_arm"), plan.trajectory_.joint_trajectory.points.at(i).positions);
+        kinematic_state->copyJointGroupPositions(kinematic_model->getJointModelGroup(planning_group), plan.trajectory_.joint_trajectory.points.at(i).positions);
 
         previous_joint_values = plan.trajectory_.joint_trajectory.points.at(i).positions;
     }
@@ -261,9 +257,6 @@ int main(int argc, char **argv)
     static const std::string PLANNING_GROUP = "right_arm";
     moveit::planning_interface::MoveGroupInterface move_group_interface(PLANNING_GROUP);
     move_group_interface.setPlanningTime(45.0);
-
-    // Set Planner
-    // move_group_interface.setPlannerId("STOMP");
 
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     const moveit::core::JointModelGroup *joint_model_group =
@@ -318,6 +311,9 @@ int main(int argc, char **argv)
 
     // std::vector<moveit_msgs::CollisionObject> collision_objects = addCollisionObjects(planning_scene_interface, move_group_interface);
 
+    move_group_interface.setNamedTarget("home");
+    move_group_interface.move();
+
     ros::WallDuration(2.0).sleep();
 
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
@@ -329,7 +325,7 @@ int main(int argc, char **argv)
     // Modify Trajectory
     Eigen::Vector3d xyz = Eigen::Vector3d(0.0, 0.0, 0.0);
 
-    moveit::planning_interface::MoveGroupInterface::Plan modified_plan = exagerateTrajectory(visual_tools, my_plan, xyz);
+    moveit::planning_interface::MoveGroupInterface::Plan modified_plan = exagerateTrajectory(visual_tools, my_plan, "right_arm", xyz);
 
     visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
 
@@ -367,7 +363,7 @@ int main(int argc, char **argv)
             break;
         case 4:
             cout << "You chose to EXAGERATE plan.\n";
-            modified_plan = exagerateTrajectory(visual_tools, my_plan, xyz);
+            modified_plan = exagerateTrajectory(visual_tools, my_plan, "right_arm", xyz);
             break;
         case 5:
             cout << "X Y Z:";
