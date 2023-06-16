@@ -4,6 +4,7 @@ project(planner)
 find_package(catkin REQUIRED
   COMPONENTS
     interactive_markers
+    visualization_msgs
     moveit_core
     moveit_ros_planning
     moveit_ros_planning_interface
@@ -40,6 +41,7 @@ catkin_package(
     moveit_visual_tools
     moveit_ros_planning_interface
     interactive_markers
+    visualization_msgs
     tf2_geometry_msgs
     actionlib_msgs
     control_msgs
@@ -49,20 +51,16 @@ catkin_package(
 
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
 
-add_executable(pick_and_place src/pick_and_place.cpp)
-target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
-add_executable(stomp_pick_and_place src/stomp_pick_and_place.cpp)
-target_link_libraries(stomp_pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(exagerate_trajectory src/exagerate_trajectory.cpp)
 target_link_libraries(exagerate_trajectory ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(exagerate_trajectory_constraints src/exagerate_trajectory_constraints.cpp)
-target_link_libraries(exagerate_trajectory_constraints ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
-add_executable(exagerate_trajectory_pilz src/exagerate_trajectory_pilz.cpp)
-target_link_libraries(exagerate_trajectory_pilz ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
 add_executable(exagerate_trajectory_yumi src/exagerate_trajectory_yumi.cpp)
 target_link_libraries(exagerate_trajectory_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(non_verbal_movements_yumi src/non_verbal_movements_yumi.cpp)
+target_link_libraries(non_verbal_movements_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(interactive_marker src/interactive_marker.cpp)
+target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
