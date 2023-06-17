@@ -13,6 +13,9 @@
 #include <visualization_msgs/Marker.h>
 #include <interactive_markers/interactive_marker_server.h>
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <iostream>
 #include <string>
 
@@ -20,46 +23,73 @@ using namespace std;
 
 const double tau = 2 * M_PI;
 
-void nonverbal(moveit::planning_interface::MoveGroupInterface &move_group_interface, moveit_visual_tools::MoveItVisualTools &visual_tools, Eigen::Isometry3d &text_pose, moveit::core::JointModelGroup joint_model_group, geometry_msgs::Pose pose)
+void nonverbal(moveit::planning_interface::MoveGroupInterface &move_group_interface, moveit_visual_tools::MoveItVisualTools &visual_tools, Eigen::Isometry3d &text_pose, moveit::core::JointModelGroup joint_model_group)
 {
-
-    pose.position.z = 0.25;
-    pose.orientation.x = 0;
-    pose.orientation.y = 0;
-    pose.orientation.z = 0;
-    pose.orientation.w = 1;
-
+    // Set constraints for arm pose
     moveit_msgs::Constraints path_constraints;
-
     // Add joint constraints
     moveit_msgs::JointConstraint joint_constraint;
 
-    joint_constraint.joint_name = "yumi_joint_1_r";
+    joint_constraint.joint_name = move_group_interface.getActiveJoints().at(0); // "yumi_joint_1_r"
     joint_constraint.position = 125 * (M_PI / 180);
     joint_constraint.tolerance_above = 0.2;
     joint_constraint.tolerance_below = 0.2;
     path_constraints.joint_constraints.push_back(joint_constraint);
 
-    joint_constraint.joint_name = "yumi_joint_2_r";
+    joint_constraint.joint_name = move_group_interface.getActiveJoints().at(1); // "yumi_joint_2_r"
     joint_constraint.position = -115 * (M_PI / 180);
     joint_constraint.tolerance_above = 0.1;
     joint_constraint.tolerance_below = 0.1;
     path_constraints.joint_constraints.push_back(joint_constraint);
 
-    joint_constraint.joint_name = "yumi_joint_3_r";
-    joint_constraint.position = 25 * (M_PI / 180);
+    joint_constraint.joint_name = move_group_interface.getActiveJoints().at(3); // "yumi_joint_3_r"
+    joint_constraint.position = 45 * (M_PI / 180);
     joint_constraint.tolerance_above = 0.2;
     joint_constraint.tolerance_below = 0.2;
     path_constraints.joint_constraints.push_back(joint_constraint);
 
     // Set the path constraints for the goal
     move_group_interface.setPathConstraints(path_constraints);
+    move_group_interface.setGoalPositionTolerance(0.1);
+
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener listener(tfBuffer);
+    geometry_msgs::TransformStamped transformStamped;
+    try
+    {
+        transformStamped = tfBuffer.lookupTransform("my_marker", "yumi_link_1_r", ros::Time(0));
+    }
+    catch (tf2::TransformException ex)
+    {
+        ROS_ERROR("%s", ex.what());
+        ros::Duration(1.0).sleep();
+    }
+
+    double dist_ratio = 0.4 / sqrt(pow(transformStamped.transform.translation.x, 2) + pow(transformStamped.transform.translation.y, 2));
+
+    // Multiply dist_ratio to x and y values
+    double transformed_x = transformStamped.transform.translation.x * dist_ratio;
+    double transformed_y = transformStamped.transform.translation.y * dist_ratio;
+
+    geometry_msgs::PoseStamped poseStamped_arm_referenced;
+    poseStamped_arm_referenced.header.stamp = ros::Time::now();
+    poseStamped_arm_referenced.header.frame_id = "my_marker";
+    poseStamped_arm_referenced.pose.position.x = transformed_x;
+    poseStamped_arm_referenced.pose.position.y = transformed_y;
+    poseStamped_arm_referenced.pose.position.z = 0.0; // Assuming the z-coordinate remains the same
+
+    geometry_msgs::PoseStamped poseStamped_base_referenced = tfBuffer.transform(poseStamped_arm_referenced, "yumi_base_link");
+
+    geometry_msgs::Pose pose;
+    pose.position.x = poseStamped_base_referenced.pose.position.x;
+    pose.position.y = poseStamped_base_referenced.pose.position.y;
+    pose.position.z = 0.40;
+    pose.orientation.x = 0;
+    pose.orientation.y = 0;
+    pose.orientation.z = 0;
+    pose.orientation.w = 1;
 
     move_group_interface.setPoseTarget(pose);
-
-    // FALTA DAR SETUP PARA APONTAR PARA O TARGET
-
-    move_group_interface.setGoalPositionTolerance(0.2);
 
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
@@ -120,7 +150,7 @@ int main(int argc, char **argv)
         {
         case 1:
             cout << "You chose to GO TO TARGET.\n";
-            nonverbal(move_group_interface, visual_tools, text_pose, *joint_model_group, pose);
+            nonverbal(move_group_interface, visual_tools, text_pose, *joint_model_group);
             break;
         case 2:
             cout << "ENTER NEW POSE VALUES\n";
