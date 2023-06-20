@@ -50,6 +50,7 @@ public:
 
         // Create a control for translation gizmo
         visualization_msgs::InteractiveMarkerControl gizmo_control;
+        gizmo_control.always_visible = true;
         gizmo_control.orientation_mode = visualization_msgs::InteractiveMarkerControl::FIXED;
         gizmo_control.interaction_mode = visualization_msgs::InteractiveMarkerControl::MOVE_3D;
         gizmo_control.orientation.w = 1.0;
@@ -78,18 +79,13 @@ public:
         transform.setRotation(q);
     }
 
-    void broadcastMarkerTransform()
-    {
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "yumi_base_link", "my_marker"));
-    }
-
     void run()
     {
-        ros::Rate loop_rate(50); // Set the loop rate to 10 Hz
+        ros::Rate loop_rate(150); // Set the loop rate to 10 Hz
 
         while (ros::ok()) // Continue the loop as long as ROS is running
         {
-            broadcastMarkerTransform(); // Call the broadcastMarkerTransform function
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "yumi_base_link", "my_marker"));
 
             ros::spinOnce(); // Process any pending ROS callbacks
 
