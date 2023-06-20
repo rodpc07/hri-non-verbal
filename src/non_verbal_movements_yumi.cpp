@@ -120,43 +120,58 @@ public:
         move_group_interface_->clearPathConstraints();
     }
 
-    void screw_unscrew()
+    void screw_unscrew(geometry_msgs::Pose input_pose, std::string mode)
     {
-        moveit::core::RobotStatePtr current_state = move_group_interface_->getCurrentState();
+        double distance = 0.05;
+
+        double maxBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).max_position_;
+        double minBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).min_position_;
+
+        Eigen::Isometry3d unscrew_inital_eigen;
+        visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
+        unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
+        geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
+
+        // Set Initial Position
+        geometry_msgs::Pose pose = mode == std::string("screw") ? unscrew_inital_pose : input_pose;
+
+        kinematic_state_->setFromIK(joint_model_group_, pose);
 
         std::vector<double> joint_group_positions;
-        current_state->copyJointGroupPositions(joint_model_group_, joint_group_positions);
+        kinematic_state_->copyJointGroupPositions(joint_model_group_, joint_group_positions);
 
-        // joint_group_positions.back() = joint_model_group_;
+        joint_group_positions.back() = mode == std::string("screw") ? minBound : maxBound;
         move_group_interface_->setJointValueTarget(joint_group_positions);
 
-        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        moveit::planning_interface::MoveGroupInterface::Plan plan_Set_Initial_Position;
 
-        bool success = (move_group_interface_->plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
-        ROS_INFO_NAMED("tutorial", "Visualizing plan 2 (joint space goal) %s", success ? "" : "FAILED");
+        bool success = (move_group_interface_->plan(plan_Set_Initial_Position) == moveit::core::MoveItErrorCode::SUCCESS);
+        move_group_interface_->move();
 
-        move_group_interface_->clearPathConstraints();
+        visual_tools_->prompt("Waiting for feedback! NEXT STEP -> Translate EndEffector");
 
-        // Translate EndEffector Backwards
+        // Translate EndEffector
         geometry_msgs::Pose start_end_effector_pose = move_group_interface_->getCurrentPose().pose;
         Eigen::Isometry3d goal_end_effector_eigen;
         geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
 
         std::vector<geometry_msgs::Pose> waypoints;
 
-        double turn_angle = M_PI_2;
+        double turn_angle = mode == std::string("screw") ? M_PI_2 : -M_PI_2;
+        int distance_ratio = 6;
+        Eigen::Vector3d translation(0, 0, mode == std::string("screw") ? distance / distance_ratio : -distance / distance_ratio);
 
-        for (double angle = 0; angle <= 2 * M_PI; angle += turn_angle)
+        for (double angle = 0; angle <= 3 * M_PI; angle += abs(turn_angle))
         {
             // Translation
             visual_tools_->convertPoseSafe(goal_end_effector_pose, goal_end_effector_eigen);
-            goal_end_effector_eigen.translate(Eigen::Vector3d(0, 0, -0.0125));
+            goal_end_effector_eigen.translate(translation);
             goal_end_effector_pose = visual_tools_->convertPose(goal_end_effector_eigen);
 
             // Rotation
             tf2::Quaternion q_orig, q_rot, q_new;
             tf2::convert(goal_end_effector_pose.orientation, q_orig);
-            q_rot.setRPY(0, 0, -M_PI_2);
+            q_rot.setRPY(0, 0, turn_angle);
             q_new = q_orig * q_rot;
             geometry_msgs::Quaternion rotated_quat;
             tf2::convert(q_new, rotated_quat);
@@ -167,15 +182,15 @@ public:
 
         moveit_msgs::RobotTrajectory trajectory;
         const double jump_threshold = 0.0;
-        const double eef_step = 0.05;
+        const double eef_step = 0.01;
         double fraction = move_group_interface_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+        ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
 
         for (std::size_t i = 0; i < waypoints.size(); ++i)
             visual_tools_->publishAxis(waypoints[i]);
         visual_tools_->trigger();
 
         move_group_interface_->execute(trajectory);
-        move_group_interface_->clearPathConstraints();
     }
 
 private:
@@ -220,18 +235,17 @@ int main(int argc, char **argv)
     move_group_interface->setNamedTarget("home");
     move_group_interface->move();
 
-    geometry_msgs::Pose pose;
-
-    pose = move_group_interface->getCurrentPose().pose;
+    geometry_msgs::Pose pose = move_group_interface->getCurrentPose().pose;
 
     int choice;
-    string str1, str2;
+    string str1 = "screw";
     do
     {
         cout << "MENU:\n"
              << "1. GO TO TARGET\n"
-             << "2. SCREW UNSCREW\n"
-             << "3. EXIT\n"
+             << "2. EXECUTE SCREW UNSCREW\n"
+             << "2. CHANGE MODE SCREW UNSCREW\n"
+             << "4. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
 
@@ -242,16 +256,20 @@ int main(int argc, char **argv)
             hri_interface.yes_no();
             break;
         case 2:
-            hri_interface.screw_unscrew();
+            hri_interface.screw_unscrew(pose, str1);
             break;
         case 3:
+            cout << "screw or unscrew:";
+            cin >> str1;
+            break;
+        case 4:
             cout << "Exiting the program...\n";
             break;
         default:
             cout << "Invalid choice. Please try again.\n";
             break;
         }
-    } while (choice != 3);
+    } while (choice != 4);
 
     ros::shutdown();
     return 0;
