@@ -36,8 +36,6 @@ public:
     {
         robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
         kinematic_model_ = robot_model_loader.getModel();
-        kinematic_state_ = std::make_shared<robot_state::RobotState>(kinematic_model_);
-        planning_scene_ = std::make_shared<planning_scene::PlanningScene>(kinematic_model_);
     }
 
     void yes_no()
@@ -120,27 +118,28 @@ public:
         move_group_interface_->clearPathConstraints();
     }
 
-    void screw_unscrew(geometry_msgs::Pose input_pose, std::string mode)
+    // bool mode (true = screw, false = unscrew)
+    void screw_unscrew(bool mode)
     {
+
         double distance = 0.05;
 
         double maxBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).max_position_;
         double minBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).min_position_;
 
-        Eigen::Isometry3d unscrew_inital_eigen;
-        visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
-        unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
-        geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
+        // Eigen::Isometry3d unscrew_inital_eigen;
+        // visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
+        // unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
+        // geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
 
-        // Set Initial Position
-        geometry_msgs::Pose pose = mode == std::string("screw") ? unscrew_inital_pose : input_pose;
-
-        kinematic_state_->setFromIK(joint_model_group_, pose);
+        // // Set Initial Position
+        // geometry_msgs::Pose pose = mode == std::string("screw") ? unscrew_inital_pose : input_pose;
 
         std::vector<double> joint_group_positions;
-        kinematic_state_->copyJointGroupPositions(joint_model_group_, joint_group_positions);
+        moveit::core::RobotState start_state(*move_group_interface_->getCurrentState());
+        start_state.copyJointGroupPositions(joint_model_group_, joint_group_positions);
 
-        joint_group_positions.back() = mode == std::string("screw") ? minBound : maxBound;
+        joint_group_positions.back() = mode ? minBound : maxBound;
         move_group_interface_->setJointValueTarget(joint_group_positions);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_Set_Initial_Position;
@@ -150,16 +149,16 @@ public:
 
         visual_tools_->prompt("Waiting for feedback! NEXT STEP -> Translate EndEffector");
 
-        // Translate EndEffector
+        // Perform action of EndEffector
         geometry_msgs::Pose start_end_effector_pose = move_group_interface_->getCurrentPose().pose;
         Eigen::Isometry3d goal_end_effector_eigen;
         geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
 
         std::vector<geometry_msgs::Pose> waypoints;
 
-        double turn_angle = mode == std::string("screw") ? M_PI_2 : -M_PI_2;
+        double turn_angle = mode ? M_PI_2 : -M_PI_2;
         int distance_ratio = 6;
-        Eigen::Vector3d translation(0, 0, mode == std::string("screw") ? distance / distance_ratio : -distance / distance_ratio);
+        Eigen::Vector3d translation(0, 0, mode ? distance / distance_ratio : -distance / distance_ratio);
 
         for (double angle = 0; angle <= 3 * M_PI; angle += abs(turn_angle))
         {
@@ -182,7 +181,7 @@ public:
 
         moveit_msgs::RobotTrajectory trajectory;
         const double jump_threshold = 0.0;
-        const double eef_step = 0.01;
+        const double eef_step = 0.1;
         double fraction = move_group_interface_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
 
@@ -200,8 +199,6 @@ private:
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
     robot_model::RobotModelPtr kinematic_model_;
-    robot_state::RobotStatePtr kinematic_state_;
-    std::shared_ptr<planning_scene::PlanningScene> planning_scene_;
 };
 
 int main(int argc, char **argv)
@@ -238,13 +235,13 @@ int main(int argc, char **argv)
     geometry_msgs::Pose pose = move_group_interface->getCurrentPose().pose;
 
     int choice;
-    string str1 = "screw";
+    bool mode = true;
     do
     {
         cout << "MENU:\n"
              << "1. GO TO TARGET\n"
              << "2. EXECUTE SCREW UNSCREW\n"
-             << "2. CHANGE MODE SCREW UNSCREW\n"
+             << "3. CHANGE MODE SCREW UNSCREW\n"
              << "4. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -256,11 +253,10 @@ int main(int argc, char **argv)
             hri_interface.yes_no();
             break;
         case 2:
-            hri_interface.screw_unscrew(pose, str1);
+            hri_interface.screw_unscrew(true);
             break;
         case 3:
             cout << "screw or unscrew:";
-            cin >> str1;
             break;
         case 4:
             cout << "Exiting the program...\n";
