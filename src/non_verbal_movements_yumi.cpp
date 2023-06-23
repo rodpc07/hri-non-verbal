@@ -16,10 +16,15 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#include "tf2_ros/message_filter.h"
+#include "message_filters/subscriber.h"
+
 #include <iostream>
 #include <string>
 
 #include <memory>
+
+#include <planner/TransformListener.h>
 
 using namespace std;
 
@@ -28,18 +33,159 @@ const double tau = 2 * M_PI;
 class HRI_Interface
 {
 public:
-    HRI_Interface(std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface,
+    HRI_Interface(ros::NodeHandle n, std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface,
                   std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface,
                   const moveit::core::JointModelGroup *joint_model_group,
                   std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools)
-        : move_group_interface_(move_group_interface), planning_scene_interface_(planning_scene_interface), joint_model_group_(joint_model_group), visual_tools_(visual_tools)
+        : n_(n), move_group_interface_(move_group_interface), planning_scene_interface_(planning_scene_interface), joint_model_group_(joint_model_group), visual_tools_(visual_tools)
     {
         robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
         kinematic_model_ = robot_model_loader.getModel();
+
+        transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
+    }
+
+    void exagerateTrajectory(moveit::planning_interface::MoveGroupInterface::Plan plan, std::string planning_group, Eigen::Vector3d xyz)
+    {
+
+        // REFERENCE: https://github.com/ros-planning/moveit/issues/1556
+
+        robot_state::RobotStatePtr kinematic_state(move_group_interface_->getCurrentState());
+
+        int num_waypoints = plan.trajectory_.joint_trajectory.points.size(); // gets the number of waypoints in the trajectory
+        int mid_waypoint = num_waypoints / 2;
+
+        const std::vector<std::string> joint_names = plan.trajectory_.joint_trajectory.joint_names; // gets the names of the joints being updated in the trajectory
+        Eigen::Affine3d current_end_effector_state;
+        std::vector<double> previous_joint_values = plan.trajectory_.joint_trajectory.points.at(0).positions;
+
+        double scale = 0;
+        double previous_max_scale = 0;
+
+        Eigen::Vector3d xyz_max = xyz;
+
+        Eigen::Isometry3d target_pose = Eigen::Isometry3d::Identity();
+
+        bool success_IK = true;
+
+        // YUMI_SPECIFIC
+        //  std::string gripper = planning_group == "right_arm" ? "gripper_r_base" : "gripper_l_base";
+        std::string gripper = std::string("gripper_") + planning_group[0] + std::string("_base");
+        ROS_INFO("Gripper: %s", gripper.c_str());
+        // FIRST LOOPS TO SET THE MAXIMUM RANGE OF THE ARM
+        {
+            previous_max_scale = 0;
+
+            for (int i = 0; i < num_waypoints; i++)
+            {
+                // set joint positions of waypoint
+                kinematic_state->setVariablePositions(joint_names, plan.trajectory_.joint_trajectory.points.at(i).positions);
+                current_end_effector_state = kinematic_state->getGlobalLinkTransform(gripper);
+
+                // FIRST LOOP TO FIND THE MAX TRANSLATION
+
+                target_pose = Eigen::Isometry3d::Identity();
+                target_pose.translation() = current_end_effector_state.translation();
+
+                if (i < mid_waypoint)
+                {
+                    scale = i / static_cast<double>(mid_waypoint);
+                }
+                else if (i > mid_waypoint)
+                {
+                    scale = 1 - (i - mid_waypoint) / static_cast<double>(mid_waypoint);
+                }
+                else
+                {
+                    scale = 1;
+                }
+
+                ROS_INFO_STREAM(scale);
+
+                target_pose.translate(xyz_max * scale);
+                target_pose.linear() = current_end_effector_state.rotation();
+
+                visual_tools_->publishAxisLabeled(target_pose, "Pose");
+                visual_tools_->trigger();
+
+                kinematic_state->setJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), previous_joint_values);
+                success_IK = kinematic_state->setFromIK(kinematic_model_->getJointModelGroup(planning_group), target_pose);
+
+                std::stringstream tmp;
+                tmp << i;
+                char const *iteration = tmp.str().c_str();
+                ROS_INFO_NAMED("First Loop", "Iteration %s", success_IK ? iteration : "FAILED");
+
+                visual_tools_->prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+                if (!success_IK)
+                {
+                    xyz_max = xyz_max * previous_max_scale;
+                    break;
+                }
+
+                previous_max_scale = i <= mid_waypoint ? scale : previous_max_scale;
+            }
+        }
+        while (!success_IK)
+            ;
+
+        visual_tools_->deleteAllMarkers();
+
+        for (int i = 0; i < num_waypoints; i++)
+        {
+            // set joint positions of waypoint
+            kinematic_state->setVariablePositions(joint_names, plan.trajectory_.joint_trajectory.points.at(i).positions);
+            current_end_effector_state = kinematic_state->getGlobalLinkTransform(gripper);
+
+            bool success_IK = true;
+            // FIRST LOOP TO FIND THE MAX TRANSLATION
+
+            target_pose = Eigen::Isometry3d::Identity();
+            target_pose.translation() = current_end_effector_state.translation();
+
+            if (i < mid_waypoint)
+            {
+                scale = i / static_cast<double>(mid_waypoint);
+            }
+            else if (i > mid_waypoint)
+            {
+                scale = 1 - (i - mid_waypoint) / static_cast<double>(mid_waypoint);
+            }
+            else
+            {
+                scale = 1;
+            }
+
+            ROS_INFO_STREAM(scale);
+
+            target_pose.translate(xyz_max * scale);
+            target_pose.linear() = current_end_effector_state.rotation();
+
+            visual_tools_->publishAxisLabeled(target_pose, "Pose");
+            visual_tools_->trigger();
+
+            kinematic_state->setJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), previous_joint_values);
+            success_IK = kinematic_state->setFromIK(kinematic_model_->getJointModelGroup(planning_group), target_pose);
+
+            std::stringstream tmp;
+            tmp << i;
+            char const *iteration = tmp.str().c_str();
+            ROS_INFO_NAMED("tutorial", "Iteration %s", success_IK ? iteration : "FAILED");
+
+            visual_tools_->prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+            kinematic_state->copyJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), plan.trajectory_.joint_trajectory.points.at(i).positions);
+
+            previous_joint_values = plan.trajectory_.joint_trajectory.points.at(i).positions;
+        }
+
+        move_group_interface_->execute(plan);
     }
 
     void yes_no()
     {
+        visual_tools_->deleteAllMarkers();
         // Set constraints for arm pose
         moveit_msgs::Constraints path_constraints;
         // Add joint constraints
@@ -76,43 +222,39 @@ public:
 
         tf2_ros::Buffer tfBuffer;
         tf2_ros::TransformListener listener(tfBuffer);
-        geometry_msgs::TransformStamped transformStamped;
-        try
-        {
-            transformStamped = tfBuffer.lookupTransform("my_marker", "yumi_link_1_r", ros::Time(0), ros::Duration(5));
-        }
-        catch (tf2::TransformException ex)
-        {
-            ROS_ERROR("%s", ex.what());
-            ros::Duration(1.0).sleep();
-        }
 
-        double dist_ratio = 0.4 / sqrt(pow(transformStamped.transform.translation.x, 2) + pow(transformStamped.transform.translation.y, 2));
+        geometry_msgs::TransformStamped markerTransform;
+        geometry_msgs::TransformStamped linkTransform;
 
-        // Multiply dist_ratio to x and y values
-        double transformed_x = transformStamped.transform.translation.x * dist_ratio;
-        double transformed_y = transformStamped.transform.translation.y * dist_ratio;
+        planner::TransformListener transformListenerMsg;
 
-        geometry_msgs::PoseStamped poseStamped_arm_referenced;
-        poseStamped_arm_referenced.header.stamp = ros::Time::now();
-        poseStamped_arm_referenced.header.frame_id = "my_marker";
-        poseStamped_arm_referenced.pose.position.x = transformed_x;
-        poseStamped_arm_referenced.pose.position.y = transformed_y;
-        poseStamped_arm_referenced.pose.position.z = 0.0; // Assuming the z-coordinate remains the same
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = "my_marker";
+        transform_listener.call(transformListenerMsg);
+        markerTransform = transformListenerMsg.response.transformStamped;
 
-        geometry_msgs::PoseStamped poseStamped_base_referenced = tfBuffer.transform(poseStamped_arm_referenced, "yumi_base_link");
+        // transformListenerMsg.request.target_frame = "yumi_base_link";
+        // transformListenerMsg.request.source_frame = "yumi_link_2_r";
+        // transform_listener.call(transformListenerMsg);
+        // linkTransform = transformListenerMsg.response.transformStamped;
 
-        final_pose.position.x = poseStamped_base_referenced.pose.position.x;
-        final_pose.position.y = poseStamped_base_referenced.pose.position.y;
+        double dist_ratio = 0.4 / sqrt(pow(markerTransform.transform.translation.x, 2) + pow(markerTransform.transform.translation.y, 2));
+
+        // // Multiply dist_ratio to x and y values
+        // double transformed_x = transformStamped.transform.translation.x * dist_ratio;
+        // double transformed_y = transformStamped.transform.translation.y * dist_ratio;
+
+        final_pose.position.x = markerTransform.transform.translation.x * dist_ratio;
+        final_pose.position.y = markerTransform.transform.translation.y * dist_ratio;
+
+        visual_tools_->publishAxis(final_pose);
+        visual_tools_->trigger();
 
         move_group_interface_->setPoseTarget(final_pose);
 
         moveit::planning_interface::MoveGroupInterface::Plan plan;
 
         bool success = (move_group_interface_->plan(plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        // visual_tools_->deleteAllMarkers();
-        // visual_tools_->publishTrajectoryPath(plan.trajectory_, plan.start_state_, true);
-        // visual_tools_->trigger();
 
         move_group_interface_->move();
         move_group_interface_->clearPathConstraints();
@@ -147,63 +289,80 @@ public:
         bool success = (move_group_interface_->plan(plan_Set_Initial_Position) == moveit::core::MoveItErrorCode::SUCCESS);
         move_group_interface_->move();
 
-        visual_tools_->prompt("Waiting for feedback! NEXT STEP -> Translate EndEffector");
-
         // Perform action of EndEffector
         geometry_msgs::Pose start_end_effector_pose = move_group_interface_->getCurrentPose().pose;
         Eigen::Isometry3d goal_end_effector_eigen;
-        geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
-
-        std::vector<geometry_msgs::Pose> waypoints;
 
         double turn_angle = mode ? M_PI_2 : -M_PI_2;
         int distance_ratio = 6;
         Eigen::Vector3d translation(0, 0, mode ? distance / distance_ratio : -distance / distance_ratio);
 
-        for (double angle = 0; angle <= 3 * M_PI; angle += abs(turn_angle))
-        {
-            // Translation
-            visual_tools_->convertPoseSafe(goal_end_effector_pose, goal_end_effector_eigen);
-            goal_end_effector_eigen.translate(translation);
-            goal_end_effector_pose = visual_tools_->convertPose(goal_end_effector_eigen);
-
-            // Rotation
-            tf2::Quaternion q_orig, q_rot, q_new;
-            tf2::convert(goal_end_effector_pose.orientation, q_orig);
-            q_rot.setRPY(0, 0, turn_angle);
-            q_new = q_orig * q_rot;
-            geometry_msgs::Quaternion rotated_quat;
-            tf2::convert(q_new, rotated_quat);
-            goal_end_effector_pose.orientation = rotated_quat;
-
-            waypoints.push_back(goal_end_effector_pose);
-        }
-
+        double fraction;
         moveit_msgs::RobotTrajectory trajectory;
-        const double jump_threshold = 0.0;
-        const double eef_step = 0.1;
-        double fraction = move_group_interface_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-        ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
 
-        for (std::size_t i = 0; i < waypoints.size(); ++i)
-            visual_tools_->publishAxis(waypoints[i]);
-        visual_tools_->trigger();
+        do
+        {
+
+            geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
+            std::vector<geometry_msgs::Pose> waypoints;
+
+            for (double angle = 0; angle <= 458 * (M_PI / 180); angle += abs(turn_angle))
+            {
+                // Translation
+                visual_tools_->convertPoseSafe(goal_end_effector_pose, goal_end_effector_eigen);
+                goal_end_effector_eigen.translate(translation);
+                goal_end_effector_pose = visual_tools_->convertPose(goal_end_effector_eigen);
+
+                // Rotation
+                tf2::Quaternion q_orig, q_rot, q_new;
+                tf2::convert(goal_end_effector_pose.orientation, q_orig);
+                q_rot.setRPY(0, 0, turn_angle);
+                q_new = q_orig * q_rot;
+                geometry_msgs::Quaternion rotated_quat;
+                tf2::convert(q_new, rotated_quat);
+                goal_end_effector_pose.orientation = rotated_quat;
+
+                waypoints.push_back(goal_end_effector_pose);
+            }
+
+            const double jump_threshold = 0.0;
+            const double eef_step = 0.1;
+            fraction = move_group_interface_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+
+            visual_tools_->deleteAllMarkers();
+
+            for (std::size_t i = 0; i < waypoints.size(); ++i)
+                visual_tools_->publishAxis(waypoints[i]);
+            visual_tools_->trigger();
+
+            if (fraction < 0.8)
+            {
+                translation.z() = translation.z() * 0.95;
+                ROS_INFO_NAMED("tutorial", "Cartesian path FAILED (%.2f%% achieved)", fraction * 100.0);
+            }
+            else
+            {
+                ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
+            }
+        } while (fraction < 0.8);
 
         move_group_interface_->execute(trajectory);
     }
 
 private:
+    ros::NodeHandle n_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_interface_;
     std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
     const moveit::core::JointModelGroup *joint_model_group_;
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
     robot_model::RobotModelPtr kinematic_model_;
+    ros::ServiceClient transform_listener;
 };
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "exagerate_trajectory");
+    ros::init(argc, argv, "hri_interface");
     ros::NodeHandle node_handle;
     ros::AsyncSpinner spinner(1);
     spinner.start();
@@ -211,6 +370,7 @@ int main(int argc, char **argv)
     static const std::string PLANNING_GROUP = "right_arm";
     auto move_group_interface = std::make_shared<moveit::planning_interface::MoveGroupInterface>(PLANNING_GROUP);
     move_group_interface->setPlanningTime(10.0);
+    move_group_interface->setMaxVelocityScalingFactor(1);
 
     auto planning_scene_interface = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
     const moveit::core::JointModelGroup *joint_model_group =
@@ -227,15 +387,16 @@ int main(int argc, char **argv)
     visual_tools->publishText(text_pose, "NON VERBAL MOVEMENT TESTING", rvt::WHITE, rvt::XXLARGE);
     visual_tools->trigger();
 
-    HRI_Interface hri_interface(move_group_interface, planning_scene_interface, joint_model_group, visual_tools);
+    HRI_Interface hri_interface(node_handle, move_group_interface, planning_scene_interface, joint_model_group, visual_tools);
 
-    move_group_interface->setNamedTarget("home");
-    move_group_interface->move();
+    // move_group_interface->setNamedTarget("home");
+    // move_group_interface->move();
 
     geometry_msgs::Pose pose = move_group_interface->getCurrentPose().pose;
 
     int choice;
     bool mode = true;
+    string input;
     do
     {
         cout << "MENU:\n"
@@ -253,10 +414,23 @@ int main(int argc, char **argv)
             hri_interface.yes_no();
             break;
         case 2:
-            hri_interface.screw_unscrew(true);
+            hri_interface.screw_unscrew(mode);
             break;
         case 3:
-            cout << "screw or unscrew:";
+            cout << "Enter 0 (unscrew) or 1 (screw): ";
+            cin >> input;
+            if (stoi(input) == 0)
+            {
+                mode = false;
+            }
+            else if (stoi(input) == 1)
+            {
+                mode = true;
+            }
+            else
+            {
+                cout << "Invalid input. Mode remains unchanged.\n";
+            }
             break;
         case 4:
             cout << "Exiting the program...\n";

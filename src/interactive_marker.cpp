@@ -69,19 +69,30 @@ public:
                                    << feedback->pose.position.x << ", " << feedback->pose.position.y << ", "
                                    << feedback->pose.position.z << ")");
 
-        transform.setOrigin(tf::Vector3(feedback->pose.position.x, feedback->pose.position.y, feedback->pose.position.z));
         tf::Quaternion q;
-        q.setX(feedback->pose.orientation.x);
-        q.setY(feedback->pose.orientation.y);
-        q.setZ(feedback->pose.orientation.z);
-        q.setW(feedback->pose.orientation.w);
+        if (!isnan(feedback->pose.position.x))
+        {
+            transform.setOrigin(tf::Vector3(feedback->pose.position.x, feedback->pose.position.y, feedback->pose.position.z));
+            q.setX(feedback->pose.orientation.x);
+            q.setY(feedback->pose.orientation.y);
+            q.setZ(feedback->pose.orientation.z);
+            q.setW(feedback->pose.orientation.w);
+        }
+        else
+        {
+            transform.setOrigin(tf::Vector3(0, 0, 0));
+            q.setX(0);
+            q.setY(0);
+            q.setZ(0);
+            q.setW(1);
+        }
 
         transform.setRotation(q);
     }
 
     void run()
     {
-        ros::Rate loop_rate(150); // Set the loop rate to 10 Hz
+        ros::Rate loop_rate(50); // Set the loop rate to 10 Hz
 
         while (ros::ok()) // Continue the loop as long as ROS is running
         {

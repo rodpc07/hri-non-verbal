@@ -24,14 +24,23 @@ find_package(catkin REQUIRED
     tf
     tf_conversions
     eigen_conversions
+    std_msgs
+    genmsg
+    message_generation
 )
 
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 
+add_service_files(
+  FILES
+  TransformListener.srv
+)
+
 generate_messages(
   DEPENDENCIES actionlib_msgs std_msgs trajectory_msgs control_msgs  # Or other packages containing msgs
 )
+
 
 catkin_package(
   LIBRARIES
@@ -52,9 +61,6 @@ catkin_package(
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
 
 
-add_executable(exagerate_trajectory src/exagerate_trajectory.cpp)
-target_link_libraries(exagerate_trajectory ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
 add_executable(exagerate_trajectory_yumi src/exagerate_trajectory_yumi.cpp)
 target_link_libraries(exagerate_trajectory_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
@@ -63,4 +69,7 @@ target_link_libraries(non_verbal_movements_yumi ${catkin_LIBRARIES} ${Boost_LIBR
 
 add_executable(interactive_marker src/interactive_marker.cpp)
 target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(transform_listener_service src/transform_listener_service.cpp)
+target_link_libraries(transform_listener_service ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
