@@ -64,7 +64,7 @@
     <arg name="moveit_warehouse_database_path" value="$(arg db_path)"/>
   </include>
 
-  <!--   -->
-  <!-- <node pkg="planner" name="transform_listener_service" type="transform_listener_service"/> -->
+  <!--  Launch Transform Listener  -->
+  <node pkg="planner" name="transform_listener_service" type="transform_listener_service"/>
 
 </launch>

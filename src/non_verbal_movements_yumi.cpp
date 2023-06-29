@@ -15,6 +15,7 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include "tf2_ros/message_filter.h"
 #include "message_filters/subscriber.h"
@@ -24,7 +25,7 @@
 
 #include <memory>
 
-#include <planner/TransformListener.h>
+#include "planner/TransformListener.h"
 
 using namespace std;
 
@@ -183,10 +184,12 @@ public:
         move_group_interface_->execute(plan);
     }
 
-    void yes_no()
+    void yes_no(std::string target_frame)
     {
-        visual_tools_->deleteAllMarkers();
+
+        move_group_interface_->setPlannerId("stomp");
         // Set constraints for arm pose
+        // These constraints are meant to set the arm in a V shape (approximately)
         moveit_msgs::Constraints path_constraints;
         // Add joint constraints
         moveit_msgs::JointConstraint joint_constraint;
@@ -195,57 +198,61 @@ public:
         joint_constraint.position = 125 * (M_PI / 180);
         joint_constraint.tolerance_above = 0.2;
         joint_constraint.tolerance_below = 0.2;
+        joint_constraint.weight = 1.0;
         path_constraints.joint_constraints.push_back(joint_constraint);
 
         joint_constraint.joint_name = move_group_interface_->getActiveJoints().at(1); // "yumi_joint_2_r"
         joint_constraint.position = -115 * (M_PI / 180);
         joint_constraint.tolerance_above = 0.1;
         joint_constraint.tolerance_below = 0.1;
+        joint_constraint.weight = 1.0;
         path_constraints.joint_constraints.push_back(joint_constraint);
 
         joint_constraint.joint_name = move_group_interface_->getActiveJoints().at(3); // "yumi_joint_3_r"
         joint_constraint.position = 45 * (M_PI / 180);
         joint_constraint.tolerance_above = 0.2;
         joint_constraint.tolerance_below = 0.2;
+        joint_constraint.weight = 1.0;
         path_constraints.joint_constraints.push_back(joint_constraint);
         // Set the path constraints for the goal
         move_group_interface_->setPathConstraints(path_constraints);
-        move_group_interface_->setGoalPositionTolerance(0.1);
+        move_group_interface_->setGoalPositionTolerance(0.02);
 
-        // The eef's final pose will always be upright and about 0.4 units high.
-        geometry_msgs::Pose final_pose;
-        final_pose.position.z = 0.40;
-        final_pose.orientation.x = 0;
-        final_pose.orientation.y = 0;
-        final_pose.orientation.z = 0;
-        final_pose.orientation.w = 1;
-
-        tf2_ros::Buffer tfBuffer;
-        tf2_ros::TransformListener listener(tfBuffer);
-
-        geometry_msgs::TransformStamped markerTransform;
+        geometry_msgs::TransformStamped targetTransform;
         geometry_msgs::TransformStamped linkTransform;
 
         planner::TransformListener transformListenerMsg;
 
         transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = "my_marker";
+        transformListenerMsg.request.source_frame = target_frame;
         transform_listener.call(transformListenerMsg);
-        markerTransform = transformListenerMsg.response.transformStamped;
+        targetTransform = transformListenerMsg.response.transformStamped;
 
-        // transformListenerMsg.request.target_frame = "yumi_base_link";
-        // transformListenerMsg.request.source_frame = "yumi_link_2_r";
-        // transform_listener.call(transformListenerMsg);
-        // linkTransform = transformListenerMsg.response.transformStamped;
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = move_group_interface_->getLinkNames().at(1); //"yumi_link_2_r"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
 
-        double dist_ratio = 0.4 / sqrt(pow(markerTransform.transform.translation.x, 2) + pow(markerTransform.transform.translation.y, 2));
+        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
+        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
 
-        // // Multiply dist_ratio to x and y values
-        // double transformed_x = transformStamped.transform.translation.x * dist_ratio;
-        // double transformed_y = transformStamped.transform.translation.y * dist_ratio;
+        double dist_ratio = 0.3 / sqrt(pow(xTarget, 2) + pow(yTarget, 2));
+        double angle = atan2(yTarget, xTarget);
 
-        final_pose.position.x = markerTransform.transform.translation.x * dist_ratio;
-        final_pose.position.y = markerTransform.transform.translation.y * dist_ratio;
+        // The eef's final pose will always be upright and about 0.4 units high.
+
+        geometry_msgs::Pose final_pose;
+        final_pose.position.z = 0.40;
+
+        final_pose.position.x = linkTransform.transform.translation.x + xTarget * dist_ratio;
+        final_pose.position.y = linkTransform.transform.translation.y + yTarget * dist_ratio;
+
+        tf2::Quaternion q(tf2::Vector3(0, 0, 1), angle);
+
+        geometry_msgs::Quaternion q_final_pose_msg;
+
+        tf2::convert(q, q_final_pose_msg);
+        final_pose.orientation = q_final_pose_msg;
 
         visual_tools_->publishAxis(final_pose);
         visual_tools_->trigger();
@@ -261,21 +268,20 @@ public:
     }
 
     // bool mode (true = screw, false = unscrew)
-    void screw_unscrew(bool mode)
+    void screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
     {
-
         double distance = 0.05;
 
         double maxBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).max_position_;
         double minBound = kinematic_model_->getVariableBounds(move_group_interface_->getActiveJoints().at(6)).min_position_;
 
-        // Eigen::Isometry3d unscrew_inital_eigen;
-        // visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
-        // unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
-        // geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
+        Eigen::Isometry3d unscrew_inital_eigen;
+        visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
+        unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
+        geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
 
-        // // Set Initial Position
-        // geometry_msgs::Pose pose = mode == std::string("screw") ? unscrew_inital_pose : input_pose;
+        // Set Initial Position
+        geometry_msgs::Pose pose = mode ? unscrew_inital_pose : input_pose;
 
         std::vector<double> joint_group_positions;
         moveit::core::RobotState start_state(*move_group_interface_->getCurrentState());
@@ -345,8 +351,16 @@ public:
                 ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
             }
         } while (fraction < 0.8);
-
         move_group_interface_->execute(trajectory);
+    }
+
+    void pointTo(std::string object_id)
+    {
+
+        std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
+
+        visual_tools_->publishAxis(objects[object_id].pose);
+        visual_tools_->trigger();
     }
 
 private:
@@ -369,6 +383,7 @@ int main(int argc, char **argv)
 
     static const std::string PLANNING_GROUP = "right_arm";
     auto move_group_interface = std::make_shared<moveit::planning_interface::MoveGroupInterface>(PLANNING_GROUP);
+    // move_group_interface->setPlannerId("stomp");
     move_group_interface->setPlanningTime(10.0);
     move_group_interface->setMaxVelocityScalingFactor(1);
 
@@ -389,10 +404,20 @@ int main(int argc, char **argv)
 
     HRI_Interface hri_interface(node_handle, move_group_interface, planning_scene_interface, joint_model_group, visual_tools);
 
-    // move_group_interface->setNamedTarget("home");
-    // move_group_interface->move();
+    move_group_interface->setNamedTarget("home");
+    move_group_interface->move();
 
     geometry_msgs::Pose pose = move_group_interface->getCurrentPose().pose;
+
+    // for (const std::string &link_name : move_group_interface->getLinkNames())
+    // {
+    //     std::cout << "Link name: " << link_name << std::endl;
+    // }
+
+    // for (const std::string &joint_name : move_group_interface->getActiveJoints())
+    // {
+    //     std::cout << "Joint name: " << joint_name << std::endl;
+    // }
 
     int choice;
     bool mode = true;
@@ -403,7 +428,8 @@ int main(int argc, char **argv)
              << "1. GO TO TARGET\n"
              << "2. EXECUTE SCREW UNSCREW\n"
              << "3. CHANGE MODE SCREW UNSCREW\n"
-             << "4. EXIT\n"
+             << "4. POINT TO\n"
+             << "5. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
 
@@ -411,10 +437,10 @@ int main(int argc, char **argv)
         {
         case 1:
             cout << "You chose to GO TO TARGET.\n";
-            hri_interface.yes_no();
+            hri_interface.yes_no("my_marker");
             break;
         case 2:
-            hri_interface.screw_unscrew(mode);
+            hri_interface.screw_unscrew(mode, move_group_interface->getCurrentPose().pose);
             break;
         case 3:
             cout << "Enter 0 (unscrew) or 1 (screw): ";
@@ -433,13 +459,18 @@ int main(int argc, char **argv)
             }
             break;
         case 4:
+            cout << "Enter \"object id\" to point to:";
+            cin >> input;
+            hri_interface.pointTo(input);
+            break;
+        case 5:
             cout << "Exiting the program...\n";
             break;
         default:
             cout << "Invalid choice. Please try again.\n";
             break;
         }
-    } while (choice != 4);
+    } while (choice != 5);
 
     ros::shutdown();
     return 0;
