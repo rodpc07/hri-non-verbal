@@ -7,7 +7,7 @@ Panels:
         - /MotionPlanning1
         - /MotionPlanning1/Planning Request1
       Splitter Ratio: 0.5
-    Tree Height: 956
+    Tree Height: 821
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -73,115 +73,6 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          gripper_l_base:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_l_finger_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_l_finger_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_base:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_finger_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_finger_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          yumi_body:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_1_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_1_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_2_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_2_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_3_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_3_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_4_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_4_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_5_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_5_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_6_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_6_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_7_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_7_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
         Loop Animation: false
         Robot Alpha: 0.5
         Robot Color: 150; 50; 150
@@ -228,115 +119,6 @@ Visualization Manager:
           Expand Link Details: false
           Expand Tree: false
           Link Tree Style: Links in Alphabetic Order
-          gripper_l_base:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_l_finger_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_l_finger_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_base:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_finger_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          gripper_r_finger_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_base_link:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-          yumi_body:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_1_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_1_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_2_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_2_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_3_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_3_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_4_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_4_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_5_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_5_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_6_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_6_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_7_l:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          yumi_link_7_r:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
         Robot Alpha: 0.5
         Show Robot Collision: false
         Show Robot Visual: true
@@ -473,7 +255,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.5173454284667969
+      Distance: 2.131761074066162
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -489,9 +271,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3947969675064087
+      Pitch: 0.03479704633355141
       Target Frame: yumi_base_link
-      Yaw: 0.15677760541439056
+      Yaw: 0.03677680715918541
     Saved: ~
 Window Geometry:
   Displays:
@@ -505,11 +287,11 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc0200000008fb000000100044006900730070006c006100790073010000003d0000044d000000c900fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e0067000000031b000001aa0000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000490000000ae0000004100ffffff000004250000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc0200000008fb000000100044006900730070006c006100790073010000003d000003c6000000c900fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e0067000000015f000002160000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000409000001350000004100ffffff000003f80000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1566
-  X: 994
+  Width: 1521
+  X: 0
   Y: 0
