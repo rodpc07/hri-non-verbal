@@ -71,9 +71,10 @@ public:
 
         // YUMI_SPECIFIC
         //  std::string gripper = planning_group == "right_arm" ? "gripper_r_base" : "gripper_l_base";
-        std::string gripper = std::string("gripper_") + planning_group[0] + std::string("_base");
+        std::string gripper = gripper_mgi_->getLinkNames().at(0);
         ROS_INFO("Gripper: %s", gripper.c_str());
         // FIRST LOOPS TO SET THE MAXIMUM RANGE OF THE ARM
+        do
         {
             previous_max_scale = 0;
 
@@ -109,8 +110,8 @@ public:
                 visual_tools_->publishAxisLabeled(target_pose, "Pose");
                 visual_tools_->trigger();
 
-                kinematic_state->setJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), previous_joint_values);
-                success_IK = kinematic_state->setFromIK(kinematic_model_->getJointModelGroup(planning_group), target_pose);
+                kinematic_state->setJointGroupPositions(arm_jmg_, previous_joint_values);
+                success_IK = kinematic_state->setFromIK(arm_jmg_, target_pose);
 
                 std::stringstream tmp;
                 tmp << i;
@@ -127,9 +128,7 @@ public:
 
                 previous_max_scale = i <= mid_waypoint ? scale : previous_max_scale;
             }
-        }
-        while (!success_IK)
-            ;
+        } while (!success_IK);
 
         visual_tools_->deleteAllMarkers();
 
@@ -140,7 +139,6 @@ public:
             current_end_effector_state = kinematic_state->getGlobalLinkTransform(gripper);
 
             bool success_IK = true;
-            // FIRST LOOP TO FIND THE MAX TRANSLATION
 
             target_pose = Eigen::Isometry3d::Identity();
             target_pose.translation() = current_end_effector_state.translation();
@@ -166,8 +164,8 @@ public:
             visual_tools_->publishAxisLabeled(target_pose, "Pose");
             visual_tools_->trigger();
 
-            kinematic_state->setJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), previous_joint_values);
-            success_IK = kinematic_state->setFromIK(kinematic_model_->getJointModelGroup(planning_group), target_pose);
+            kinematic_state->setJointGroupPositions(arm_jmg_, previous_joint_values);
+            success_IK = kinematic_state->setFromIK(arm_jmg_, target_pose);
 
             std::stringstream tmp;
             tmp << i;
@@ -176,7 +174,7 @@ public:
 
             visual_tools_->prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
 
-            kinematic_state->copyJointGroupPositions(kinematic_model_->getJointModelGroup(planning_group), plan.trajectory_.joint_trajectory.points.at(i).positions);
+            kinematic_state->copyJointGroupPositions(arm_jmg_, plan.trajectory_.joint_trajectory.points.at(i).positions);
 
             previous_joint_values = plan.trajectory_.joint_trajectory.points.at(i).positions;
         }
@@ -187,36 +185,35 @@ public:
     void attention(std::string target_frame)
     {
 
-        arm_mgi_->setPlannerId("stomp");
-        // Set constraints for arm pose
-        // These constraints are meant to set the arm in a V shape (approximately)
-        moveit_msgs::Constraints path_constraints;
-        // Add joint constraints
-        moveit_msgs::JointConstraint joint_constraint;
+        // // Set constraints for arm pose
+        // // These constraints are meant to set the arm in a V shape (approximately)
+        // moveit_msgs::Constraints path_constraints;
+        // // Add joint constraints
+        // moveit_msgs::JointConstraint joint_constraint;
 
-        joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(0); // "yumi_joint_1_r"
-        joint_constraint.position = 125 * (M_PI / 180);
-        joint_constraint.tolerance_above = 0.2;
-        joint_constraint.tolerance_below = 0.2;
-        joint_constraint.weight = 1.0;
-        path_constraints.joint_constraints.push_back(joint_constraint);
+        // joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(0); // "yumi_joint_1_r"
+        // joint_constraint.position = 125 * (M_PI / 180);
+        // joint_constraint.tolerance_above = 0.01;
+        // joint_constraint.tolerance_below = 0.01;
+        // joint_constraint.weight = 1.0;
+        // path_constraints.joint_constraints.push_back(joint_constraint);
 
-        joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(1); // "yumi_joint_2_r"
-        joint_constraint.position = -115 * (M_PI / 180);
-        joint_constraint.tolerance_above = 0.1;
-        joint_constraint.tolerance_below = 0.1;
-        joint_constraint.weight = 1.0;
-        path_constraints.joint_constraints.push_back(joint_constraint);
+        // joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(1); // "yumi_joint_2_r"
+        // joint_constraint.position = -115 * (M_PI / 180);
+        // joint_constraint.tolerance_above = 0.01;
+        // joint_constraint.tolerance_below = 0.01;
+        // joint_constraint.weight = 1.0;
+        // path_constraints.joint_constraints.push_back(joint_constraint);
 
-        joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(3); // "yumi_joint_3_r"
-        joint_constraint.position = 45 * (M_PI / 180);
-        joint_constraint.tolerance_above = 0.2;
-        joint_constraint.tolerance_below = 0.2;
-        joint_constraint.weight = 1.0;
-        path_constraints.joint_constraints.push_back(joint_constraint);
-        // Set the path constraints for the goal
-        arm_mgi_->setPathConstraints(path_constraints);
-        arm_mgi_->setGoalPositionTolerance(0.02);
+        // joint_constraint.joint_name = arm_mgi_->getActiveJoints().at(3); // "yumi_joint_3_r"
+        // joint_constraint.position = 45 * (M_PI / 180);
+        // joint_constraint.tolerance_above = 0.01;
+        // joint_constraint.tolerance_below = 0.01;
+        // joint_constraint.weight = 1.0;
+        // path_constraints.joint_constraints.push_back(joint_constraint);
+        // // Set the path constraints for the goal
+        // arm_mgi_->setPathConstraints(path_constraints);
+        // arm_mgi_->setGoalPositionTolerance(0.05);
 
         geometry_msgs::TransformStamped targetTransform;
         geometry_msgs::TransformStamped linkTransform;
@@ -229,42 +226,36 @@ public:
         targetTransform = transformListenerMsg.response.transformStamped;
 
         transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2_r"
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
         transform_listener.call(transformListenerMsg);
         linkTransform = transformListenerMsg.response.transformStamped;
+
+        std::vector<double> joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 90 * (M_PI / 180), 0, 0};
+        moveit::core::RobotState final_state(*arm_mgi_->getCurrentState());
+        final_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
+
+        const Eigen::Isometry3d &end_effector_state = final_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
 
         double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
         double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
 
-        double dist_ratio = 0.3 / sqrt(pow(xTarget, 2) + pow(yTarget, 2));
-        double angle = atan2(yTarget, xTarget);
+        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
+        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
 
-        // The eef's final pose will always be upright and about 0.4 units high.
+        double target_angle = atan2(yTarget, xTarget);
+        double ee_angle = atan2(yEE, xEE);
 
-        geometry_msgs::Pose final_pose;
-        final_pose.position.z = 0.40;
+        double angle = ee_angle - target_angle;
 
-        final_pose.position.x = linkTransform.transform.translation.x + xTarget * dist_ratio;
-        final_pose.position.y = linkTransform.transform.translation.y + yTarget * dist_ratio;
+        joint_group_positions.at(2) = angle;
+        arm_mgi_->setJointValueTarget(joint_group_positions);
 
-        tf2::Quaternion q(tf2::Vector3(0, 0, 1), angle);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
 
-        geometry_msgs::Quaternion q_final_pose_msg;
+        bool success = (arm_mgi_->plan(arm_plan_1) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 
-        tf2::convert(q, q_final_pose_msg);
-        final_pose.orientation = q_final_pose_msg;
-
-        visual_tools_->publishAxis(final_pose);
-        visual_tools_->trigger();
-
-        arm_mgi_->setPoseTarget(final_pose);
-
-        moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-        bool success = (arm_mgi_->plan(plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-
-        arm_mgi_->move();
         arm_mgi_->clearPathConstraints();
+        arm_mgi_->move();
     }
 
     // bool mode (true = screw, false = unscrew)
@@ -352,10 +343,13 @@ public:
             }
         } while (fraction < 0.8);
         arm_mgi_->execute(trajectory);
+        visual_tools_->deleteAllMarkers();
     }
 
     void pointTo(std::string object_id, string target_frame)
     {
+
+        // TODO - Finish
 
         gripper_mgi_->setNamedTarget("close");
 
@@ -515,8 +509,6 @@ int main(int argc, char **argv)
     auto left_gripper_mgi = std::make_shared<moveit::planning_interface::MoveGroupInterface>("left_gripper");
     const moveit::core::JointModelGroup *left_gripper_jmg = left_gripper_mgi->getCurrentState()->getJointModelGroup("left_gripper");
 
-    right_arm_mgi->setPlannerId("stomp");
-
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
@@ -534,8 +526,15 @@ int main(int argc, char **argv)
 
     geometry_msgs::Pose pose = right_arm_mgi->getCurrentPose().pose;
 
-    // for (const std::string &link_name : move_group_interface->getLinkNames())
+    // for (const std::string &link_name : right_arm_mgi->getLinkNames())
     // {
+    //     std::cout << "Right Arm \n";
+    //     std::cout << "Link name: " << link_name << std::endl;
+    // }
+
+    // for (const std::string &link_name : right_gripper_mgi->getLinkNames())
+    // {
+    //     std::cout << "Right Gripper \n";
     //     std::cout << "Link name: " << link_name << std::endl;
     // }
 
