@@ -364,12 +364,56 @@ public:
     void signalPick()
     {
         // TODO - signalPick
+
+        std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+        std::vector<double> initial_joint_values;
+        moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
+        gripper_state.copyJointGroupPositions(gripper_jmg_, initial_joint_values);
+
+        if (*initial_joint_values.begin() == gripper_mgi_->getNamedTargetValues("close").begin()->second)
+        {
+            gripper_mgi_->setNamedTarget("open");
+            gripper_mgi_->plan(plan);
+            planList.push_back(plan);
+
+            std::cout << "Size of Plan Joint Values: " << plan.trajectory_.joint_trajectory.points.back().positions.size() << std::endl;
+
+            gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
+        }
+
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->plan(plan);
+        planList.push_back(plan);
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
+
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("open");
+        gripper_mgi_->plan(plan);
+        planList.push_back(plan);
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
+
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->plan(plan);
+        planList.push_back(plan);
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
+
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("open");
+        gripper_mgi_->plan(plan);
+        planList.push_back(plan);
+
+        for (const auto &planValue : planList)
+        {
+            gripper_mgi_->execute(planValue);
+        }
     }
 
     void signalRotateLeft()
     {
-        // TODO - signalRotateLeft
-
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).min_position_;
 
         // Get Initial Joint Values
@@ -455,18 +499,13 @@ public:
         arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         arm_mgi_->execute(first_movement);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(first_rotation);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(second_rotation);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(last_movement);
     }
 
     void signalRotateRight()
     {
-        // TODO - signalRotateRight
-
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).max_position_;
 
         // Get Initial Joint Values
@@ -552,11 +591,8 @@ public:
         arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         arm_mgi_->execute(first_movement);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(first_rotation);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(second_rotation);
-        visual_tools_->prompt("Press For Next");
         arm_mgi_->execute(last_movement);
     }
 
@@ -569,7 +605,6 @@ private:
     std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
-    robot_model::RobotModelPtr kinematic_model_;
     ros::ServiceClient transform_listener;
 };
 
@@ -698,11 +733,11 @@ int main(int argc, char **argv)
 
     geometry_msgs::Pose pose = right_arm_mgi->getCurrentPose().pose;
 
-    for (const std::string &link_name : right_arm_mgi->getLinkNames())
-    {
-        std::cout << "Right Arm \n";
-        std::cout << "Link name: " << link_name << std::endl;
-    }
+    // for (const std::string &link_name : right_arm_mgi->getLinkNames())
+    // {
+    //     std::cout << "Right Arm \n";
+    //     std::cout << "Link name: " << link_name << std::endl;
+    // }
 
     // for (const std::string &link_name : right_gripper_mgi->getLinkNames())
     // {
@@ -727,7 +762,8 @@ int main(int argc, char **argv)
              << "4. POINT TO\n"
              << "5. ROTATE LEFT\n"
              << "6. ROTATE RIGHT\n"
-             << "7. EXIT\n"
+             << "7. SIGNAL PICK\n"
+             << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
 
@@ -768,13 +804,16 @@ int main(int argc, char **argv)
             right_arm_hri.signalRotateRight();
             break;
         case 7:
+            right_arm_hri.signalPick();
+            break;
+        case 0:
             cout << "Exiting the program...\n";
             break;
         default:
             cout << "Invalid choice. Please try again.\n";
             break;
         }
-    } while (choice != 7);
+    } while (choice != 0);
 
     ros::shutdown();
     return 0;
