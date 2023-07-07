@@ -365,46 +365,34 @@ public:
     {
         // TODO - signalPick
 
-        std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
-        moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-        std::vector<double> initial_joint_values;
         moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
-        gripper_state.copyJointGroupPositions(gripper_jmg_, initial_joint_values);
+        std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
+        moveit::planning_interface::MoveGroupInterface::Plan openPlan;
+        moveit::planning_interface::MoveGroupInterface::Plan closePlan;
 
-        if (*initial_joint_values.begin() == gripper_mgi_->getNamedTargetValues("close").begin()->second)
+        std::vector<double> closedJointValues = {gripper_mgi_->getNamedTargetValues("close").begin()->second};
+        std::vector<double> openedJointValues = {gripper_mgi_->getNamedTargetValues("open").begin()->second};
+
+        // Plan Close Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, openedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->plan(closePlan);
+
+        // Plan Open Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, closedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("open");
+        gripper_mgi_->plan(openPlan);
+
+        if (gripper_mgi_->getCurrentJointValues().begin() < openedJointValues.begin())
         {
-            gripper_mgi_->setNamedTarget("open");
-            gripper_mgi_->plan(plan);
-            planList.push_back(plan);
-
-            std::cout << "Size of Plan Joint Values: " << plan.trajectory_.joint_trajectory.points.back().positions.size() << std::endl;
-
-            gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
+            planList.push_back(openPlan);
         }
 
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("close");
-        gripper_mgi_->plan(plan);
-        planList.push_back(plan);
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
-
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("open");
-        gripper_mgi_->plan(plan);
-        planList.push_back(plan);
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
-
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("close");
-        gripper_mgi_->plan(plan);
-        planList.push_back(plan);
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, plan.trajectory_.joint_trajectory.points.back().positions);
-
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("open");
-        gripper_mgi_->plan(plan);
-        planList.push_back(plan);
+        planList.push_back(closePlan);
+        planList.push_back(openPlan);
+        planList.push_back(closePlan);
 
         for (const auto &planValue : planList)
         {
