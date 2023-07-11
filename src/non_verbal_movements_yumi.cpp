@@ -46,7 +46,7 @@ public:
         transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
     }
 
-    void exagerateTrajectory(moveit::planning_interface::MoveGroupInterface::Plan plan, std::string planning_group, Eigen::Vector3d xyz)
+    void exagerateTrajectory(moveit::planning_interface::MoveGroupInterface::Plan plan, Eigen::Vector3d xyz)
     {
         // REFERENCE: https://github.com/ros-planning/moveit/issues/1556
 
@@ -68,8 +68,6 @@ public:
 
         bool success_IK = true;
 
-        // YUMI_SPECIFIC
-        //  std::string gripper = planning_group == "right_arm" ? "gripper_r_base" : "gripper_l_base";
         std::string gripper = gripper_mgi_->getLinkNames().at(0);
         ROS_INFO("Gripper: %s", gripper.c_str());
         // FIRST LOOPS TO SET THE MAXIMUM RANGE OF THE ARM
@@ -183,26 +181,35 @@ public:
 
     void attention(std::string target_frame)
     {
+        // TODO - Finish Movement
+
+        arm_mgi_->setStartStateToCurrentState();
+
         geometry_msgs::TransformStamped targetTransform;
         geometry_msgs::TransformStamped linkTransform;
 
         planner::TransformListener transformListenerMsg;
 
+        // Get transform from human position in reference to base_link
         transformListenerMsg.request.target_frame = "yumi_base_link";
         transformListenerMsg.request.source_frame = target_frame;
         transform_listener.call(transformListenerMsg);
         targetTransform = transformListenerMsg.response.transformStamped;
 
+        // Get transform from shoulder position in reference to base_link
         transformListenerMsg.request.target_frame = "yumi_base_link";
         transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
         transform_listener.call(transformListenerMsg);
         linkTransform = transformListenerMsg.response.transformStamped;
 
+        // This joint values set the pose of the arm in a V shape (depends on robot morphology)
         std::vector<double> joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 90 * (M_PI / 180), 0, 0};
-        moveit::core::RobotState final_state(*arm_mgi_->getCurrentState());
-        final_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+        arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
 
-        const Eigen::Isometry3d &end_effector_state = final_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
+        const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
+
+        // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
 
         double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
         double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
@@ -220,15 +227,51 @@ public:
 
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
 
-        bool success = (arm_mgi_->plan(arm_plan_1) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        arm_mgi_->plan(arm_plan_1);
+        arm_mgi_->execute(arm_plan_1);
 
-        arm_mgi_->clearPathConstraints();
-        arm_mgi_->move();
+        // Next are planned in advance 4 motions to simulate waving, later executed sequecially
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_1.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = -45 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_2;
+        arm_mgi_->plan(arm_plan_2);
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = 45 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_3;
+        arm_mgi_->plan(arm_plan_3);
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_3.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = -45 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_4;
+        arm_mgi_->plan(arm_plan_4);
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_4.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = 0 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_5;
+        arm_mgi_->plan(arm_plan_5);
+
+        arm_mgi_->execute(arm_plan_2);
+        arm_mgi_->execute(arm_plan_3);
+        arm_mgi_->execute(arm_plan_4);
+        arm_mgi_->execute(arm_plan_5);
     }
 
     // bool mode (true = screw, false = unscrew)
     void screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
     {
+
+        arm_mgi_->setStartStateToCurrentState();
+
         double distance = 0.05;
 
         double maxBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).max_position_;
@@ -239,12 +282,14 @@ public:
         unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
         geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
 
-        // Set Initial Position
+        // Set Initial Position to same as argument or offset
         geometry_msgs::Pose pose = mode ? unscrew_inital_pose : input_pose;
 
         std::vector<double> joint_group_positions;
         moveit::core::RobotState start_state(*arm_mgi_->getCurrentState());
         start_state.copyJointGroupPositions(arm_jmg_, joint_group_positions);
+
+        // Set gripper joint to limit to allow a full range of rotation
 
         joint_group_positions.back() = mode ? minBound : maxBound;
         arm_mgi_->setJointValueTarget(joint_group_positions);
@@ -363,8 +408,6 @@ public:
 
     void signalPick()
     {
-        // TODO - signalPick
-
         moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
         std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
         moveit::planning_interface::MoveGroupInterface::Plan openPlan;
@@ -402,6 +445,8 @@ public:
 
     void signalRotateLeft()
     {
+        arm_mgi_->setStartStateToCurrentState();
+
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).min_position_;
 
         // Get Initial Joint Values
@@ -445,12 +490,16 @@ public:
         lookPose.orientation = q_msg;
 
         std::vector<double> lookPose_joint_values;
-        arm_state.setFromIK(arm_jmg_, lookPose);
+        bool success = arm_state.setFromIK(arm_jmg_, lookPose);
+        ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
         if (abs(bound - lookPose_joint_values.back()) < M_PI_2)
         {
             lookPose_joint_values.back() += M_PI;
         }
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
 
         // Plan to Look at Human
         arm_mgi_->setStartStateToCurrentState();
@@ -494,6 +543,8 @@ public:
 
     void signalRotateRight()
     {
+        arm_mgi_->setStartStateToCurrentState();
+
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).max_position_;
 
         // Get Initial Joint Values
@@ -704,6 +755,11 @@ int main(int argc, char **argv)
     right_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     right_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
 
+    left_arm_mgi->setMaxVelocityScalingFactor(1.0);
+    left_arm_mgi->setMaxAccelerationScalingFactor(1.0);
+    left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
+    left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
+
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
@@ -718,6 +774,7 @@ int main(int argc, char **argv)
     addCollisionObjects(*planning_scene_interface);
 
     HRI_Interface right_arm_hri(node_handle, right_arm_mgi, right_arm_jmg, right_gripper_mgi, right_gripper_jmg, planning_scene_interface, visual_tools);
+    HRI_Interface left_arm_hri(node_handle, left_arm_mgi, left_arm_jmg, left_gripper_mgi, left_gripper_jmg, planning_scene_interface, visual_tools);
 
     geometry_msgs::Pose pose = right_arm_mgi->getCurrentPose().pose;
 
@@ -760,9 +817,12 @@ int main(int argc, char **argv)
         case 1:
             cout << "You chose to GO TO TARGET.\n";
             right_arm_hri.attention("my_marker");
+            left_arm_hri.attention("my_marker");
+
             break;
         case 2:
             right_arm_hri.screw_unscrew(mode, right_arm_mgi->getCurrentPose().pose);
+            left_arm_hri.screw_unscrew(mode, left_arm_mgi->getCurrentPose().pose);
             break;
         case 3:
             cout << "Enter 0 (unscrew) or 1 (screw): ";
@@ -784,15 +844,20 @@ int main(int argc, char **argv)
             cout << "Enter \"object id\" to point to:";
             cin >> input;
             right_arm_hri.pointToObject(input, "my_marker");
+            left_arm_hri.pointToObject(input, "my_marker");
             break;
         case 5:
             right_arm_hri.signalRotateLeft();
+            left_arm_hri.signalRotateLeft();
+
             break;
         case 6:
             right_arm_hri.signalRotateRight();
+            left_arm_hri.signalRotateLeft();
             break;
         case 7:
             right_arm_hri.signalPick();
+            left_arm_hri.signalPick();
             break;
         case 0:
             cout << "Exiting the program...\n";
