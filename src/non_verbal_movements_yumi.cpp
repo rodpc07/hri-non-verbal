@@ -43,7 +43,27 @@ public:
                   std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools)
         : n_(n), arm_mgi_(arm_mgi), arm_jmg_(arm_jmg), gripper_mgi_(gripper_mgi), gripper_jmg_(gripper_jmg), planning_scene_interface_(planning_scene_interface), visual_tools_(visual_tools)
     {
+        ROS_INFO("Initializing HRI_INTERFACE");
+        // Subscribe to Transform Service
         transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
+
+        // Pre-plan close and open gripper motions
+        closedJointValues = {gripper_mgi_->getNamedTargetValues("close").begin()->second};
+        openedJointValues = {gripper_mgi_->getNamedTargetValues("open").begin()->second};
+
+        moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
+
+        // Plan Close Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, openedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->plan(closePlan);
+
+        // Plan Open Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, closedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("open");
+        gripper_mgi_->plan(openPlan);
     }
 
     void exagerateTrajectory(moveit::planning_interface::MoveGroupInterface::Plan plan, Eigen::Vector3d xyz)
@@ -408,34 +428,22 @@ public:
 
     void signalPick()
     {
-        moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
         std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
-        moveit::planning_interface::MoveGroupInterface::Plan openPlan;
-        moveit::planning_interface::MoveGroupInterface::Plan closePlan;
+        gripper_mgi_->setStartStateToCurrentState();
 
-        std::vector<double> closedJointValues = {gripper_mgi_->getNamedTargetValues("close").begin()->second};
-        std::vector<double> openedJointValues = {gripper_mgi_->getNamedTargetValues("open").begin()->second};
-
-        // Plan Close Trajectory
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, openedJointValues);
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("close");
-        gripper_mgi_->plan(closePlan);
-
-        // Plan Open Trajectory
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, closedJointValues);
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("open");
-        gripper_mgi_->plan(openPlan);
-
-        if (gripper_mgi_->getCurrentJointValues().begin() < openedJointValues.begin())
+        cout << "Current value:" << *gripper_mgi_->getCurrentJointValues().begin() << std::endl;
+        cout << "Opened value:" << *openedJointValues.begin() << std::endl;
+        cout << "Difference: " << abs(gripper_mgi_->getCurrentJointValues().at(0) - openedJointValues.at(0)) << std::endl;
+        if (abs(gripper_mgi_->getCurrentJointValues().at(0) - openedJointValues.at(0)) > 0.001)
         {
+            ROS_INFO("ENTROU NO IF");
             planList.push_back(openPlan);
         }
 
         planList.push_back(closePlan);
         planList.push_back(openPlan);
         planList.push_back(closePlan);
+        planList.push_back(openPlan);
 
         for (const auto &planValue : planList)
         {
@@ -445,6 +453,7 @@ public:
 
     void signalRotateLeft()
     {
+        visual_tools_->deleteAllMarkers();
         arm_mgi_->setStartStateToCurrentState();
 
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).min_position_;
@@ -472,11 +481,13 @@ public:
 
         double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
         double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
 
-        double angle = atan2(yTarget, xTarget);
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = atan2(xTarget, zTarget);
 
-        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), angle);
-        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), M_PI_2);
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
         tf2::Quaternion qresult = q1 * q2;
         qresult.normalize();
 
@@ -489,26 +500,27 @@ public:
         lookPose.position.z = linkTransform.transform.translation.z;
         lookPose.orientation = q_msg;
 
-        std::vector<double> lookPose_joint_values;
-        bool success = arm_state.setFromIK(arm_jmg_, lookPose);
-        ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
-        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setGoalPositionTolerance(0.05);
+        arm_mgi_->setGoalOrientationTolerance(0.05);
+        arm_mgi_->setPoseTarget(lookPose);
+        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
+        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+
+        std::vector<double> lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
+        arm_state.setJointGroupPositions(arm_jmg_, lookPose_joint_values);
         if (abs(bound - lookPose_joint_values.back()) < M_PI_2)
         {
             lookPose_joint_values.back() += M_PI;
         }
 
-        visual_tools_->publishAxis(lookPose);
-        visual_tools_->trigger();
-
-        // Plan to Look at Human
-        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
-        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        moveit::planning_interface::MoveGroupInterface::Plan second_movement;
+        arm_mgi_->plan(second_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         // Get Pre-Rotation Joint Values
-        std::vector<double> pre_rotation_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
+        std::vector<double> pre_rotation_joint_values = second_movement.trajectory_.joint_trajectory.points.back().positions;
 
         // Change End-Effector Rotation
         std::vector<double> rotated_joint_values = pre_rotation_joint_values;
@@ -536,6 +548,7 @@ public:
         arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         arm_mgi_->execute(first_movement);
+        arm_mgi_->execute(second_movement);
         arm_mgi_->execute(first_rotation);
         arm_mgi_->execute(second_rotation);
         arm_mgi_->execute(last_movement);
@@ -543,6 +556,7 @@ public:
 
     void signalRotateRight()
     {
+        visual_tools_->deleteAllMarkers();
         arm_mgi_->setStartStateToCurrentState();
 
         double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).max_position_;
@@ -570,11 +584,13 @@ public:
 
         double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
         double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
 
-        double angle = atan2(yTarget, xTarget);
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = atan2(xTarget, zTarget);
 
-        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), angle);
-        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), M_PI_2);
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
         tf2::Quaternion qresult = q1 * q2;
         qresult.normalize();
 
@@ -587,22 +603,27 @@ public:
         lookPose.position.z = linkTransform.transform.translation.z;
         lookPose.orientation = q_msg;
 
-        std::vector<double> lookPose_joint_values;
-        arm_state.setFromIK(arm_jmg_, lookPose);
-        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setGoalPositionTolerance(0.05);
+        arm_mgi_->setGoalOrientationTolerance(0.05);
+        arm_mgi_->setPoseTarget(lookPose);
+        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
+        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+
+        std::vector<double> lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
+        arm_state.setJointGroupPositions(arm_jmg_, lookPose_joint_values);
         if (abs(bound - lookPose_joint_values.back()) < M_PI_2)
         {
             lookPose_joint_values.back() -= M_PI;
         }
 
-        // Plan to Look at Human
-        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
-        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        moveit::planning_interface::MoveGroupInterface::Plan second_movement;
+        arm_mgi_->plan(second_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         // Get Pre-Rotation Joint Values
-        std::vector<double> pre_rotation_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
+        std::vector<double> pre_rotation_joint_values = second_movement.trajectory_.joint_trajectory.points.back().positions;
 
         // Change End-Effector Rotation
         std::vector<double> rotated_joint_values = pre_rotation_joint_values;
@@ -630,6 +651,7 @@ public:
         arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
         arm_mgi_->execute(first_movement);
+        arm_mgi_->execute(second_movement);
         arm_mgi_->execute(first_rotation);
         arm_mgi_->execute(second_rotation);
         arm_mgi_->execute(last_movement);
@@ -645,6 +667,11 @@ private:
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
     ros::ServiceClient transform_listener;
+
+    moveit::planning_interface::MoveGroupInterface::Plan openPlan;
+    moveit::planning_interface::MoveGroupInterface::Plan closePlan;
+    std::vector<double> closedJointValues;
+    std::vector<double> openedJointValues;
 };
 
 std::vector<moveit_msgs::CollisionObject> addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
@@ -760,6 +787,11 @@ int main(int argc, char **argv)
     left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
 
+    // right_arm_mgi->setPlannerId("AnytimePathShortening");
+    // right_gripper_mgi->setPlannerId("AnytimePathShortening");
+    // left_arm_mgi->setPlannerId("AnytimePathShortening");
+    // left_gripper_mgi->setPlannerId("AnytimePathShortening");
+
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
@@ -853,7 +885,7 @@ int main(int argc, char **argv)
             break;
         case 6:
             right_arm_hri.signalRotateRight();
-            left_arm_hri.signalRotateLeft();
+            left_arm_hri.signalRotateRight();
             break;
         case 7:
             right_arm_hri.signalPick();
