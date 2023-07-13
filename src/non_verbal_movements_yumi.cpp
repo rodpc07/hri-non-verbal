@@ -382,48 +382,24 @@ public:
     void pointToObject(std::string object_id, string target_frame)
     {
 
-        // TODO - Finish
-
-        gripper_mgi_->setNamedTarget("close");
+        // TODO - Finish pointToObject
 
         std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
 
         visual_tools_->publishAxis(objects[object_id].pose);
         visual_tools_->trigger();
 
-        geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
+        // Find position of object
 
-        planner::TransformListener transformListenerMsg;
+        // Create a vector from shoulder to object to calculate pose
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = target_frame;
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+        /*ideas:
+            - the pitch of the eef is the angle calculated from the height and distance of the eef in relation to the object
+        */
+    }
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
-
-        double dist_ratio = 0.3 / sqrt(pow(xTarget, 2) + pow(yTarget, 2));
-        double angle = atan2(yTarget, xTarget);
-
-        // The eef's final pose will always be upright and about 0.4 units high.
-
-        geometry_msgs::Pose final_pose;
-        final_pose.position.z = 0.40;
-
-        final_pose.position.x = linkTransform.transform.translation.x + xTarget * dist_ratio;
-        final_pose.position.y = linkTransform.transform.translation.y + yTarget * dist_ratio;
-
-        tf2::Quaternion q(tf2::Vector3(0, 0, 1), angle);
-
-        geometry_msgs::Quaternion q_final_pose_msg;
-
-        tf2::convert(q, q_final_pose_msg);
-        final_pose.orientation = q_final_pose_msg;
-
-        visual_tools_->publishAxis(final_pose);
-        visual_tools_->trigger();
+    void pointToHuman(string target_frame)
+    {
     }
 
     void signalPick()
@@ -431,14 +407,8 @@ public:
         std::vector<moveit::planning_interface::MoveGroupInterface::Plan> planList;
         gripper_mgi_->setStartStateToCurrentState();
 
-        cout << "Current value:" << *gripper_mgi_->getCurrentJointValues().begin() << std::endl;
-        cout << "Opened value:" << *openedJointValues.begin() << std::endl;
-        cout << "Difference: " << abs(gripper_mgi_->getCurrentJointValues().at(0) - openedJointValues.at(0)) << std::endl;
         if (abs(gripper_mgi_->getCurrentJointValues().at(0) - openedJointValues.at(0)) > 0.001)
-        {
-            ROS_INFO("ENTROU NO IF");
             planList.push_back(openPlan);
-        }
 
         planList.push_back(closePlan);
         planList.push_back(openPlan);
