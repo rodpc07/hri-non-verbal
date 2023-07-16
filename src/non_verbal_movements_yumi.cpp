@@ -26,6 +26,7 @@
 #include <memory>
 
 #include "planner/TransformListener.h"
+#include <moveit_msgs/GetPositionIK.h>
 
 using namespace std;
 
@@ -46,24 +47,9 @@ public:
         ROS_INFO("Initializing HRI_INTERFACE");
         // Subscribe to Transform Service
         transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
+        ikService = n_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
 
-        // Pre-plan close and open gripper motions
-        closedJointValues = {gripper_mgi_->getNamedTargetValues("close").begin()->second};
-        openedJointValues = {gripper_mgi_->getNamedTargetValues("open").begin()->second};
-
-        moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
-
-        // Plan Close Trajectory
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, openedJointValues);
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("close");
-        gripper_mgi_->plan(closePlan);
-
-        // Plan Open Trajectory
-        gripper_state.setJointGroupActivePositions(gripper_jmg_, closedJointValues);
-        gripper_mgi_->setStartState(gripper_state);
-        gripper_mgi_->setNamedTarget("open");
-        gripper_mgi_->plan(openPlan);
+        prePlanPick();
     }
 
     void exagerateTrajectory(moveit::planning_interface::MoveGroupInterface::Plan plan, Eigen::Vector3d xyz)
@@ -382,24 +368,136 @@ public:
     void pointToObject(std::string object_id, string target_frame)
     {
 
-        // TODO - Finish pointToObject
+        visual_tools_->deleteAllMarkers();
 
+        // Obtain object from scene
         std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
 
-        visual_tools_->publishAxis(objects[object_id].pose);
-        visual_tools_->trigger();
-
         // Find position of object
+        moveit_msgs::CollisionObject object = objects[object_id];
+        geometry_msgs::Pose object_pose = object.pose;
+
+        double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
+        visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
+        visual_tools_->publishAxis(object.pose);
+        visual_tools_->trigger();
 
         // Create a vector from shoulder to object to calculate pose
 
-        /*ideas:
-            - the pitch of the eef is the angle calculated from the height and distance of the eef in relation to the object
-        */
+        geometry_msgs::TransformStamped linkTransform;
+
+        planner::TransformListener transformListenerMsg;
+
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
+
+        double xTarget = object_pose.position.x - linkTransform.transform.translation.x;
+        double yTarget = object_pose.position.y - linkTransform.transform.translation.y;
+        double zTarget = object_pose.position.z - linkTransform.transform.translation.z;
+
+        double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
+
+        double targetDistance = distance - radius - 0.15 >= 0.6 ? 0.6 : distance - radius - 0.15;
+
+        double scalingFactor = (targetDistance) / distance;
+
+        xTarget *= scalingFactor;
+        yTarget *= scalingFactor;
+        zTarget *= scalingFactor;
+
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+        tf2::Quaternion qresult = q1 * q2;
+        qresult.normalize();
+
+        geometry_msgs::Quaternion q_msg;
+        tf2::convert(qresult, q_msg);
+
+        geometry_msgs::Pose lookPose;
+        lookPose.position.x = linkTransform.transform.translation.x + xTarget;
+        lookPose.position.y = linkTransform.transform.translation.y + yTarget;
+        lookPose.position.z = linkTransform.transform.translation.z + zTarget;
+        lookPose.orientation = q_msg;
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setPoseTarget(lookPose);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        arm_mgi_->plan(plan);
     }
 
     void pointToHuman(string target_frame)
     {
+        // TODO - Finish pointToHuman
+
+        visual_tools_->deleteAllMarkers();
+
+        // Obtain object from scene
+        std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
+
+        // Create a vector from shoulder to object to calculate pose
+
+        // Calculate New Pose Looking at Human
+        geometry_msgs::TransformStamped targetTransform;
+        geometry_msgs::TransformStamped linkTransform;
+
+        planner::TransformListener transformListenerMsg;
+
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = target_frame;
+        transform_listener.call(transformListenerMsg);
+        targetTransform = transformListenerMsg.response.transformStamped;
+
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_7"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
+
+        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
+        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
+
+        double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
+
+        double targetDistance = distance - 0.5 >= 0.6 ? 0.6 : distance - 0.5;
+
+        double scalingFactor = (targetDistance) / distance;
+
+        xTarget *= scalingFactor;
+        yTarget *= scalingFactor;
+        zTarget *= scalingFactor;
+
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+        tf2::Quaternion qresult = q1 * q2;
+        qresult.normalize();
+
+        geometry_msgs::Quaternion q_msg;
+        tf2::convert(qresult, q_msg);
+
+        geometry_msgs::Pose lookPose;
+        lookPose.position.x = linkTransform.transform.translation.x + xTarget;
+        lookPose.position.y = linkTransform.transform.translation.y + yTarget;
+        lookPose.position.z = linkTransform.transform.translation.z + zTarget;
+        lookPose.orientation = q_msg;
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->setPoseTarget(lookPose);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        arm_mgi_->plan(plan);
     }
 
     void signalPick()
@@ -423,6 +521,7 @@ public:
 
     void signalRotateLeft()
     {
+        // TODO - change target_frame also in Right
         visual_tools_->deleteAllMarkers();
         arm_mgi_->setStartStateToCurrentState();
 
@@ -454,7 +553,7 @@ public:
         double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
 
         double sideAngle = atan2(yTarget, xTarget);
-        double tiltAngle = atan2(xTarget, zTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
 
         tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
         tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
@@ -557,7 +656,7 @@ public:
         double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
 
         double sideAngle = atan2(yTarget, xTarget);
-        double tiltAngle = atan2(xTarget, zTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
 
         tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
         tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
@@ -637,11 +736,33 @@ private:
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
 
     ros::ServiceClient transform_listener;
+    ros::ServiceClient ikService;
 
     moveit::planning_interface::MoveGroupInterface::Plan openPlan;
     moveit::planning_interface::MoveGroupInterface::Plan closePlan;
     std::vector<double> closedJointValues;
     std::vector<double> openedJointValues;
+
+    void prePlanPick()
+    {
+        // Pre-plan close and open gripper motions
+        closedJointValues = {gripper_mgi_->getNamedTargetValues("close").begin()->second};
+        openedJointValues = {gripper_mgi_->getNamedTargetValues("open").begin()->second};
+
+        moveit::core::RobotState gripper_state(*gripper_mgi_->getCurrentState());
+
+        // Plan Close Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, openedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->plan(closePlan);
+
+        // Plan Open Trajectory
+        gripper_state.setJointGroupActivePositions(gripper_jmg_, closedJointValues);
+        gripper_mgi_->setStartState(gripper_state);
+        gripper_mgi_->setNamedTarget("open");
+        gripper_mgi_->plan(openPlan);
+    }
 };
 
 std::vector<moveit_msgs::CollisionObject> addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
@@ -860,6 +981,10 @@ int main(int argc, char **argv)
         case 7:
             right_arm_hri.signalPick();
             left_arm_hri.signalPick();
+            break;
+        case 8:
+            right_arm_hri.pointToHuman("my_marker");
+            left_arm_hri.pointToHuman("my_marker");
             break;
         case 0:
             cout << "Exiting the program...\n";

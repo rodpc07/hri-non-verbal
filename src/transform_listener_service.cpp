@@ -15,14 +15,16 @@ bool transformServiceCallback(planner::TransformListener::Request &req,
     ROS_INFO("Target Frame: %s\n", req.target_frame.c_str());
     ROS_INFO("Source Frame: %s\n", req.source_frame.c_str());
 
-    while (true)
+    ros::Time startTime = ros::Time::now();
+
+    while (ros::Time::now() - startTime <= ros::Duration(5.0))
     {
         try
         {
             res.transformStamped = tfBuffer.lookupTransform(req.target_frame, req.source_frame, ros::Time(0));
 
-            if (!res.transformStamped.header.stamp.isZero())
-                break;
+            if (res.transformStamped.header.stamp.isValid())
+                return true;
         }
         catch (tf2::TransformException &ex)
         {
@@ -34,23 +36,23 @@ bool transformServiceCallback(planner::TransformListener::Request &req,
         rate.sleep();
     }
 
-    ROS_INFO("TransformStamped:\n");
-    ROS_INFO("Header:\n");
-    ROS_INFO("  frame_id: %s", res.transformStamped.header.frame_id.c_str());
-    ROS_INFO("  stamp: %f", res.transformStamped.header.stamp.toSec());
-    ROS_INFO("Child Frame ID: %s", res.transformStamped.child_frame_id.c_str());
-    ROS_INFO("Transform:\n");
-    ROS_INFO("  Translation:\n");
-    ROS_INFO("    x: %f", res.transformStamped.transform.translation.x);
-    ROS_INFO("    y: %f", res.transformStamped.transform.translation.y);
-    ROS_INFO("    z: %f", res.transformStamped.transform.translation.z);
-    ROS_INFO("  Rotation:\n");
-    ROS_INFO("    x: %f", res.transformStamped.transform.rotation.x);
-    ROS_INFO("    y: %f", res.transformStamped.transform.rotation.y);
-    ROS_INFO("    z: %f", res.transformStamped.transform.rotation.z);
-    ROS_INFO("    w: %f", res.transformStamped.transform.rotation.w);
+    return false;
 
-    return true;
+    // ROS_INFO("TransformStamped:\n");
+    // ROS_INFO("Header:\n");
+    // ROS_INFO("  frame_id: %s", res.transformStamped.header.frame_id.c_str());
+    // ROS_INFO("  stamp: %f", res.transformStamped.header.stamp.toSec());
+    // ROS_INFO("Child Frame ID: %s", res.transformStamped.child_frame_id.c_str());
+    // ROS_INFO("Transform:\n");
+    // ROS_INFO("  Translation:\n");
+    // ROS_INFO("    x: %f", res.transformStamped.transform.translation.x);
+    // ROS_INFO("    y: %f", res.transformStamped.transform.translation.y);
+    // ROS_INFO("    z: %f", res.transformStamped.transform.translation.z);
+    // ROS_INFO("  Rotation:\n");
+    // ROS_INFO("    x: %f", res.transformStamped.transform.rotation.x);
+    // ROS_INFO("    y: %f", res.transformStamped.transform.rotation.y);
+    // ROS_INFO("    z: %f", res.transformStamped.transform.rotation.z);
+    // ROS_INFO("    w: %f", res.transformStamped.transform.rotation.w);
 }
 
 int main(int argc, char **argv)
