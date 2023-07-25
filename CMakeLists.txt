@@ -27,6 +27,7 @@ find_package(catkin REQUIRED
     std_msgs
     genmsg
     message_generation
+    moveit_grasps
 )
 
 find_package(Eigen3 REQUIRED)
@@ -54,15 +55,12 @@ catkin_package(
     tf2_geometry_msgs
     actionlib_msgs
     control_msgs
+    moveit_grasps
   DEPENDS
     EIGEN3
 )
 
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
-
-
-add_executable(exagerate_trajectory_yumi src/exagerate_trajectory_yumi.cpp)
-target_link_libraries(exagerate_trajectory_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(non_verbal_movements_yumi src/non_verbal_movements_yumi.cpp)
 target_link_libraries(non_verbal_movements_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
@@ -72,4 +70,7 @@ target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(transform_listener_service src/transform_listener_service.cpp)
 target_link_libraries(transform_listener_service ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(pick_and_place src/pick_and_place.cpp)
+target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 

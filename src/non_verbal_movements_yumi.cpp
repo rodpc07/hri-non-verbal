@@ -522,6 +522,9 @@ public:
     void signalRotateLeft()
     {
         // TODO - change target_frame also in Right
+
+        // TODO - Fix bug when instead of rotating the gripper ir rotates the whole arm
+
         visual_tools_->deleteAllMarkers();
         arm_mgi_->setStartStateToCurrentState();
 
@@ -765,83 +768,213 @@ private:
     }
 };
 
-std::vector<moveit_msgs::CollisionObject> addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
+void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
 {
+    // BEGIN_SUB_TUTORIAL pick1
+    // Create a vector of grasps to be attempted, currently only creating single grasp.
+    // This is essentially useful when using a grasp generator to generate and test multiple grasps.
+    std::vector<moveit_msgs::Grasp> grasps;
+    grasps.resize(1);
+
+    // Actual Grasping Pose
+    grasps[0].grasp_pose.header.frame_id = "yumi_base_link";
+    grasps[0].grasp_pose.pose.position.x = 0.383890;
+    grasps[0].grasp_pose.pose.position.y = -0.008552;
+    grasps[0].grasp_pose.pose.position.z = 0.491650;
+    grasps[0].grasp_pose.pose.orientation.x = 0.471129;
+    grasps[0].grasp_pose.pose.orientation.y = 0.538489;
+    grasps[0].grasp_pose.pose.orientation.z = 0.500098;
+    grasps[0].grasp_pose.pose.orientation.w = 0.487822;
+
+    // Pre Grasp (vector representing the direction of approach)
+    grasps[0].pre_grasp_approach.direction.header.frame_id = "yumi_base_link";
+    grasps[0].pre_grasp_approach.direction.vector.x = 1.0;
+    grasps[0].pre_grasp_approach.min_distance = 0.095;
+    grasps[0].pre_grasp_approach.desired_distance = 0.115;
+
+    // Post Grasp (vector representing the direction of retreat)
+    grasps[0].post_grasp_retreat.direction.header.frame_id = "yumi_base_link";
+    grasps[0].post_grasp_retreat.direction.vector.z = 1.0;
+    grasps[0].post_grasp_retreat.min_distance = 0.1;
+    grasps[0].post_grasp_retreat.desired_distance = 0.25;
+
+    // Open Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getJointNames())
+    {
+        grasps[0].pre_grasp_posture.joint_names.push_back(joint_name);
+    };
+
+    grasps[0].pre_grasp_posture.points.resize(1);
+    grasps[0].pre_grasp_posture.points[0].positions.resize(2);
+    grasps[0].pre_grasp_posture.points[0].positions[0] = 0.025;
+    grasps[0].pre_grasp_posture.points[0].positions[1] = 0.025;
+    grasps[0].pre_grasp_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    // Close Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getJointNames())
+    {
+        grasps[0].grasp_posture.joint_names.push_back(joint_name);
+    };
+
+    grasps[0].grasp_posture.points.resize(1);
+    grasps[0].grasp_posture.points[0].positions.resize(2);
+    grasps[0].grasp_posture.points[0].positions[0] = 0.00;
+    grasps[0].grasp_posture.points[0].positions[1] = 0.00;
+    grasps[0].grasp_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    arm_mgi.setSupportSurfaceName("table1");
+    arm_mgi.pick("object", grasps);
+}
+
+void place(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
+{
+    std::vector<moveit_msgs::PlaceLocation> place_location;
+    place_location.resize(1);
+
+    // Actual Placing Pose (this is the object pose and not the gripper pose)
+    place_location[0].place_pose.header.frame_id = "yumi_base_link";
+    place_location[0].place_pose.pose.position.x = 0.02;
+    place_location[0].place_pose.pose.position.y = 0.46;
+    place_location[0].place_pose.pose.position.z = 0.5;
+    place_location[0].place_pose.pose.orientation.x = 0;
+    place_location[0].place_pose.pose.orientation.y = 0;
+    place_location[0].place_pose.pose.orientation.z = 0.720831;
+    place_location[0].place_pose.pose.orientation.w = 0.693111;
+
+    // Pre Place Pose (vector representing the direction of approach, simetric to the pick)
+    place_location[0].pre_place_approach.direction.header.frame_id = "yumi_base_link";
+    place_location[0].pre_place_approach.direction.vector.z = -1.0;
+    place_location[0].pre_place_approach.min_distance = 0.095;
+    place_location[0].pre_place_approach.desired_distance = 0.115;
+
+    // Pre Place Pose (vector representing the direction of retreat)
+    place_location[0].post_place_retreat.direction.header.frame_id = "yumi_base_link";
+    place_location[0].post_place_retreat.direction.vector.z = 1.0;
+    place_location[0].post_place_retreat.min_distance = 0.1;
+    place_location[0].post_place_retreat.desired_distance = 0.25;
+
+    // Open Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getJointNames())
+    {
+        place_location[0].post_place_posture.joint_names.push_back(joint_name);
+    };
+
+    place_location[0].post_place_posture.points.resize(1);
+    place_location[0].post_place_posture.points[0].positions.resize(2);
+    place_location[0].post_place_posture.points[0].positions[0] = 0.025;
+    place_location[0].post_place_posture.points[0].positions[1] = 0.025;
+    place_location[0].post_place_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    arm_mgi.setSupportSurfaceName("table2");
+    arm_mgi.place("object", place_location);
+}
+
+void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
+{
+    // BEGIN_SUB_TUTORIAL table1
+    //
+    // Creating Environment
+    // ^^^^^^^^^^^^^^^^^^^^
+    // Create vector to hold 3 collision objects.
     std::vector<moveit_msgs::CollisionObject> collision_objects;
     collision_objects.resize(3);
 
-    // Add the box
-    collision_objects[0].id = "box";
+    // Add the first table where the cube will originally be kept.
+    collision_objects[0].id = "table1";
     collision_objects[0].header.frame_id = "world";
 
     /* Define the primitive and its dimensions. */
     collision_objects[0].primitives.resize(1);
     collision_objects[0].primitives[0].type = collision_objects[0].primitives[0].BOX;
     collision_objects[0].primitives[0].dimensions.resize(3);
-    collision_objects[0].primitives[0].dimensions[0] = 0.05;
-    collision_objects[0].primitives[0].dimensions[1] = 0.05;
-    collision_objects[0].primitives[0].dimensions[2] = 0.05;
+    collision_objects[0].primitives[0].dimensions[0] = 0.2;
+    collision_objects[0].primitives[0].dimensions[1] = 0.4;
+    collision_objects[0].primitives[0].dimensions[2] = 0.4;
 
     /* Define the pose of the table. */
     collision_objects[0].primitive_poses.resize(1);
-    collision_objects[0].primitive_poses[0].position.x = 0.53;
-    collision_objects[0].primitive_poses[0].position.y = -0.23;
-    collision_objects[0].primitive_poses[0].position.z = 0.025;
-    collision_objects[0].primitive_poses[0].orientation.x = 0;
-    collision_objects[0].primitive_poses[0].orientation.y = 0;
-    collision_objects[0].primitive_poses[0].orientation.z = 0;
+    collision_objects[0].primitive_poses[0].position.x = 0.5;
+    collision_objects[0].primitive_poses[0].position.y = 0;
+    collision_objects[0].primitive_poses[0].position.z = 0.2;
     collision_objects[0].primitive_poses[0].orientation.w = 1.0;
+    // END_SUB_TUTORIAL
 
     collision_objects[0].operation = collision_objects[0].ADD;
 
-    // Add the sphere
-    collision_objects[1].id = "sphere";
+    // BEGIN_SUB_TUTORIAL table2
+    // Add the second table where we will be placing the cube.
+    collision_objects[1].id = "table2";
     collision_objects[1].header.frame_id = "world";
 
-    // Define the sphere and its radius
+    /* Define the primitive and its dimensions. */
     collision_objects[1].primitives.resize(1);
-    collision_objects[1].primitives[0].type = collision_objects[1].primitives[0].SPHERE;
-    collision_objects[1].primitives[0].dimensions.resize(1); // Only one dimension for a sphere
-    collision_objects[1].primitives[0].dimensions[0] = 0.05; // Radius
+    collision_objects[1].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[1].primitives[0].dimensions.resize(3);
+    collision_objects[1].primitives[0].dimensions[0] = 0.4;
+    collision_objects[1].primitives[0].dimensions[1] = 0.2;
+    collision_objects[1].primitives[0].dimensions[2] = 0.4;
 
-    // Define the pose of the sphere
+    /* Define the pose of the table. */
     collision_objects[1].primitive_poses.resize(1);
-    collision_objects[1].primitive_poses[0].position.x = 0.45;
-    collision_objects[1].primitive_poses[0].position.y = -0.34;
-    collision_objects[1].primitive_poses[0].position.z = 0.025;
-    collision_objects[1].primitive_poses[0].orientation.x = 0;
-    collision_objects[1].primitive_poses[0].orientation.y = 0;
-    collision_objects[1].primitive_poses[0].orientation.z = 0;
+    collision_objects[1].primitive_poses[0].position.x = 0;
+    collision_objects[1].primitive_poses[0].position.y = 0.5;
+    collision_objects[1].primitive_poses[0].position.z = 0.2;
     collision_objects[1].primitive_poses[0].orientation.w = 1.0;
+    // END_SUB_TUTORIAL
 
     collision_objects[1].operation = collision_objects[1].ADD;
 
-    // Add a cylinder
-    collision_objects[2].id = "cylinder";
+    // BEGIN_SUB_TUTORIAL object
+    // Define the object that we will be manipulating
     collision_objects[2].header.frame_id = "world";
+    collision_objects[2].id = "object";
 
-    // Define the cylinder and its dimensions
+    /* Define the primitive and its dimensions. */
     collision_objects[2].primitives.resize(1);
-    collision_objects[2].primitives[0].type = collision_objects[2].primitives[0].CYLINDER;
-    collision_objects[2].primitives[0].dimensions.resize(2); // Two dimensions for a cylinder
-    collision_objects[2].primitives[0].dimensions[0] = 0.05; // Height
-    collision_objects[2].primitives[0].dimensions[1] = 0.05; // Radius
+    collision_objects[2].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[2].primitives[0].dimensions.resize(3);
+    collision_objects[2].primitives[0].dimensions[0] = 0.02;
+    collision_objects[2].primitives[0].dimensions[1] = 0.02;
+    collision_objects[2].primitives[0].dimensions[2] = 0.2;
 
-    // Define the pose of the cylinder
+    /* Define the pose of the object. */
     collision_objects[2].primitive_poses.resize(1);
-    collision_objects[2].primitive_poses[0].position.x = 0.53;
-    collision_objects[2].primitive_poses[0].position.y = -0.06;
-    collision_objects[2].primitive_poses[0].position.z = 0.025;
-    collision_objects[2].primitive_poses[0].orientation.x = 0;
-    collision_objects[2].primitive_poses[0].orientation.y = 0;
-    collision_objects[2].primitive_poses[0].orientation.z = 0;
+    collision_objects[2].primitive_poses[0].position.x = 0.5;
+    collision_objects[2].primitive_poses[0].position.y = 0;
+    collision_objects[2].primitive_poses[0].position.z = 0.5;
     collision_objects[2].primitive_poses[0].orientation.w = 1.0;
+    // END_SUB_TUTORIAL
 
     collision_objects[2].operation = collision_objects[2].ADD;
 
     planning_scene_interface.applyCollisionObjects(collision_objects);
+}
 
-    return collision_objects;
+void printPose(moveit::planning_interface::MoveGroupInterface &group)
+{
+    geometry_msgs::PoseStamped poseStamped = group.getCurrentPose();
+
+    std::cout << "PoseStamped: " << group.getName().c_str() << ";\n";
+    std::cout << "pose.position.x = " << poseStamped.pose.position.x << ";\n";
+    std::cout << "pose.position.y = " << poseStamped.pose.position.y << ";\n";
+    std::cout << "pose.position.z = " << poseStamped.pose.position.z << ";\n";
+    std::cout << "pose.orientation.x = " << poseStamped.pose.orientation.x << ";\n";
+    std::cout << "pose.orientation.y = " << poseStamped.pose.orientation.y << ";\n";
+    std::cout << "pose.orientation.z = " << poseStamped.pose.orientation.z << ";\n";
+    std::cout << "pose.orientation.w = " << poseStamped.pose.orientation.w << ";\n";
+}
+
+void printPose(moveit_msgs::CollisionObject object)
+{
+    geometry_msgs::Pose pose = object.pose;
+
+    std::cout << "pose.position.x = " << pose.position.x << ";\n";
+    std::cout << "pose.position.y = " << pose.position.y << ";\n";
+    std::cout << "pose.position.z = " << pose.position.z << ";\n";
+    std::cout << "pose.orientation.x = " << pose.orientation.x << ";\n";
+    std::cout << "pose.orientation.y = " << pose.orientation.y << ";\n";
+    std::cout << "pose.orientation.z = " << pose.orientation.z << ";\n";
+    std::cout << "pose.orientation.w = " << pose.orientation.w << ";\n";
 }
 
 int main(int argc, char **argv)
