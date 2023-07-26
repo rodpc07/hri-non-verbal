@@ -10,7 +10,7 @@ bool transformServiceCallback(planner::TransformListener::Request &req,
 {
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener tfListener(tfBuffer);
-    ros::Rate rate(15.0);
+    ros::Rate rate(50.0);
 
     ROS_INFO("Target Frame: %s\n", req.target_frame.c_str());
     ROS_INFO("Source Frame: %s\n", req.source_frame.c_str());

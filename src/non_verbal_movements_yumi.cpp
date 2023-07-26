@@ -16,6 +16,9 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/impl/utils.h>
+
+#include <tf2_eigen/tf2_eigen.h>
 
 #include "tf2_ros/message_filter.h"
 #include "message_filters/subscriber.h"
@@ -519,41 +522,59 @@ public:
         }
     }
 
-    void signalRotateLeft()
+    void signalRotate(string object_id, Eigen::Vector3d rotationInfo)
     {
-        // TODO - change target_frame also in Right
-
-        // TODO - Fix bug when instead of rotating the gripper ir rotates the whole arm
 
         visual_tools_->deleteAllMarkers();
-        arm_mgi_->setStartStateToCurrentState();
 
-        double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).min_position_;
+        // Obtain object from scene
+        std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
 
-        // Get Initial Joint Values
-        std::vector<double> initial_joint_values;
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
-        arm_state.copyJointGroupPositions(arm_jmg_, initial_joint_values);
+        // TODO - Protect from input
+        if (objects.count(object_id) == 0)
+        {
+            ROS_WARN("PROTECTION NOT IMPLEMENTED");
+        }
 
-        // Calculate New Pose Looking at Human
-        geometry_msgs::TransformStamped targetTransform;
+        // Find position of object
+        moveit_msgs::CollisionObject object = objects[object_id];
+        geometry_msgs::Pose object_pose = object.pose;
+
+        double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
+        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
+        visual_tools_->publishAxis(object_pose);
+        visual_tools_->trigger();
+
+        // Create a vector from shoulder to object to calculate pose
+
         geometry_msgs::TransformStamped linkTransform;
-
         planner::TransformListener transformListenerMsg;
 
         transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = "my_marker";
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
-
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().back(); //"yumi_link_7"
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
         transform_listener.call(transformListenerMsg);
         linkTransform = transformListenerMsg.response.transformStamped;
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
-        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
+        Eigen::Isometry3d objectEigen;
+        visual_tools_->convertPoseSafe(object_pose, objectEigen);
+
+        std::vector<Eigen::Isometry3d> approach_options;
+        for (int i = 0; i < 2; i++)
+        {
+            approach_options.push_back(objectEigen);
+            approach_options[i].translate(rotationInfo * pow(-1, i) * (radius + 0.1));
+        }
+
+        Eigen::Isometry3d closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
+
+        visual_tools_->publishAxis(approach_options[0]);
+        visual_tools_->publishAxis(approach_options[1]);
+        visual_tools_->publishAxisLabeled(closestApproachOption, "Closest");
+        visual_tools_->trigger();
+
+        double xTarget = object_pose.position.x - closestApproachOption.translation().x();
+        double yTarget = object_pose.position.y - closestApproachOption.translation().y();
+        double zTarget = object_pose.position.z - closestApproachOption.translation().z();
 
         double sideAngle = atan2(yTarget, xTarget);
         double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
@@ -567,143 +588,62 @@ public:
         tf2::convert(qresult, q_msg);
 
         geometry_msgs::Pose lookPose;
-        lookPose.position.x = linkTransform.transform.translation.x;
-        lookPose.position.y = linkTransform.transform.translation.y;
-        lookPose.position.z = linkTransform.transform.translation.z;
+        lookPose.position.x = closestApproachOption.translation().x();
+        lookPose.position.y = closestApproachOption.translation().y();
+        lookPose.position.z = closestApproachOption.translation().z();
         lookPose.orientation = q_msg;
 
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
         arm_mgi_->setStartStateToCurrentState();
-        arm_mgi_->setGoalPositionTolerance(0.05);
-        arm_mgi_->setGoalOrientationTolerance(0.05);
-        arm_mgi_->setPoseTarget(lookPose);
-        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
-        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        std::vector<double> lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
-        arm_state.setJointGroupPositions(arm_jmg_, lookPose_joint_values);
-        if (abs(bound - lookPose_joint_values.back()) < M_PI_2)
-        {
-            lookPose_joint_values.back() += M_PI;
-        }
-
-        arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(lookPose_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan second_movement;
-        arm_mgi_->plan(second_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        // Get Pre-Rotation Joint Values
-        std::vector<double> pre_rotation_joint_values = second_movement.trajectory_.joint_trajectory.points.back().positions;
-
-        // Change End-Effector Rotation
-        std::vector<double> rotated_joint_values = pre_rotation_joint_values;
-        rotated_joint_values.back() += -M_PI_2;
-
-        // Set Rotated Position as JointValueTarget and Plan
-        arm_state.setJointGroupPositions(arm_jmg_, pre_rotation_joint_values);
-        arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(rotated_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan first_rotation;
-        arm_mgi_->plan(first_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        // Set Pre-Rotation Position as JointValueTarget and Plan
-        arm_state.setJointGroupPositions(arm_jmg_, rotated_joint_values);
-        arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(pre_rotation_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan second_rotation;
-        arm_mgi_->plan(second_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        // Set Initial Position as JointValueTarget and Plan
-        arm_state.setJointGroupPositions(arm_jmg_, pre_rotation_joint_values);
-        arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(initial_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan last_movement;
-        arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        arm_mgi_->execute(first_movement);
-        arm_mgi_->execute(second_movement);
-        arm_mgi_->execute(first_rotation);
-        arm_mgi_->execute(second_rotation);
-        arm_mgi_->execute(last_movement);
-    }
-
-    void signalRotateRight()
-    {
-        visual_tools_->deleteAllMarkers();
-        arm_mgi_->setStartStateToCurrentState();
-
-        double bound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().back()).max_position_;
-
-        // Get Initial Joint Values
-        std::vector<double> initial_joint_values;
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
-        arm_state.copyJointGroupPositions(arm_jmg_, initial_joint_values);
 
-        // Calculate New Pose Looking at Human
-        geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
+        while (!arm_state.setFromIK(arm_jmg_, lookPose))
+            ;
 
-        planner::TransformListener transformListenerMsg;
+        std::vector<double> lookPose_joint_values;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = "my_marker";
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+        double maxBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).max_position_;
+        double minBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).min_position_;
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().back(); //"yumi_link_7"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
-
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
-        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
-
-        double sideAngle = atan2(yTarget, xTarget);
-        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
-
-        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
-        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
-        tf2::Quaternion qresult = q1 * q2;
-        qresult.normalize();
-
-        geometry_msgs::Quaternion q_msg;
-        tf2::convert(qresult, q_msg);
-
-        geometry_msgs::Pose lookPose;
-        lookPose.position.x = linkTransform.transform.translation.x;
-        lookPose.position.y = linkTransform.transform.translation.y;
-        lookPose.position.z = linkTransform.transform.translation.z;
-        lookPose.orientation = q_msg;
-
-        arm_mgi_->setStartStateToCurrentState();
-        arm_mgi_->setGoalPositionTolerance(0.05);
-        arm_mgi_->setGoalOrientationTolerance(0.05);
-        arm_mgi_->setPoseTarget(lookPose);
-        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
-        arm_mgi_->plan(first_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        std::vector<double> lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
-        arm_state.setJointGroupPositions(arm_jmg_, lookPose_joint_values);
-        if (abs(bound - lookPose_joint_values.back()) < M_PI_2)
+        if (abs(maxBound - lookPose_joint_values.back()) < M_PI_2)
         {
-            lookPose_joint_values.back() -= M_PI;
+            lookPose_joint_values.back() -= M_PI_2 - abs(maxBound - lookPose_joint_values.back());
+        }
+        else if (abs(minBound - lookPose_joint_values.back()) < M_PI_2)
+        {
+            lookPose_joint_values.back() += M_PI_2 - abs(minBound - lookPose_joint_values.back());
         }
 
-        arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan second_movement;
-        arm_mgi_->plan(second_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
-        // Get Pre-Rotation Joint Values
-        std::vector<double> pre_rotation_joint_values = second_movement.trajectory_.joint_trajectory.points.back().positions;
-
-        // Change End-Effector Rotation
-        std::vector<double> rotated_joint_values = pre_rotation_joint_values;
-        rotated_joint_values.back() += M_PI_2;
+        moveit::planning_interface::MoveGroupInterface::Plan first_movement;
+        arm_mgi_->plan(first_movement);
 
         // Set Rotated Position as JointValueTarget and Plan
-        arm_state.setJointGroupPositions(arm_jmg_, pre_rotation_joint_values);
+        lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
+        arm_state.setJointGroupPositions(arm_jmg_, lookPose_joint_values);
         arm_mgi_->setStartState(arm_state);
+        // Change End-Effector Rotation
+        std::vector<double> rotated_joint_values = lookPose_joint_values;
+
+        // Check if the Z axis of the EE is aligned with the object rotation axis
+        Eigen::Quaterniond look_orientation(lookPose.orientation.w, lookPose.orientation.x, lookPose.orientation.y, lookPose.orientation.z);
+        Eigen::Vector3d look_z_axis = look_orientation * Eigen::Vector3d::UnitZ();
+
+        Eigen::Quaterniond object_orientation(object_pose.orientation.w, object_pose.orientation.x, object_pose.orientation.y, object_pose.orientation.z);
+        Eigen::Vector3d object_x_axis = object_orientation * rotationInfo;
+
+        if (look_z_axis.dot(object_x_axis) > 0)
+        {
+            rotated_joint_values.back() += M_PI_2;
+        }
+        else
+        {
+            rotated_joint_values.back() -= M_PI_2;
+        }
+
         arm_mgi_->setJointValueTarget(rotated_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan first_rotation;
         arm_mgi_->plan(first_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
@@ -711,22 +651,13 @@ public:
         // Set Pre-Rotation Position as JointValueTarget and Plan
         arm_state.setJointGroupPositions(arm_jmg_, rotated_joint_values);
         arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(pre_rotation_joint_values);
+        arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan second_rotation;
         arm_mgi_->plan(second_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
 
-        // Set Initial Position as JointValueTarget and Plan
-        arm_state.setJointGroupPositions(arm_jmg_, pre_rotation_joint_values);
-        arm_mgi_->setStartState(arm_state);
-        arm_mgi_->setJointValueTarget(initial_joint_values);
-        moveit::planning_interface::MoveGroupInterface::Plan last_movement;
-        arm_mgi_->plan(last_movement) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
-
         arm_mgi_->execute(first_movement);
-        arm_mgi_->execute(second_movement);
         arm_mgi_->execute(first_rotation);
         arm_mgi_->execute(second_rotation);
-        arm_mgi_->execute(last_movement);
     }
 
 private:
@@ -765,6 +696,36 @@ private:
         gripper_mgi_->setStartState(gripper_state);
         gripper_mgi_->setNamedTarget("open");
         gripper_mgi_->plan(openPlan);
+    }
+
+    double calculateDistance(const Eigen::Isometry3d &pose1, const Eigen::Isometry3d &pose2)
+    {
+        return (pose1.translation() - pose2.translation()).norm();
+    }
+
+    Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const geometry_msgs::TransformStamped &linkTransform)
+    {
+        Eigen::Isometry3d closestApproachOption;
+        double minDistance = std::numeric_limits<double>::max();
+
+        // Convert geometry_msgs::TransformStamped to Eigen::Isometry3d
+        Eigen::Isometry3d linkEigen = tf2::transformToEigen(linkTransform.transform);
+
+        for (const auto &approachOption : approach_options)
+        {
+
+            // Calculate distance between linkEigen and the current approach option
+            double distance = calculateDistance(linkEigen, approachOption);
+
+            // Update the closestApproachOption if the current distance is smaller
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestApproachOption = approachOption;
+            }
+        }
+
+        return closestApproachOption;
     }
 };
 
@@ -1003,18 +964,17 @@ int main(int argc, char **argv)
 
     right_arm_mgi->setMaxVelocityScalingFactor(1.0);
     right_arm_mgi->setMaxAccelerationScalingFactor(1.0);
+    right_arm_mgi->setPlanningTime(5);
     right_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     right_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
+    right_gripper_mgi->setPlanningTime(5);
 
     left_arm_mgi->setMaxVelocityScalingFactor(1.0);
     left_arm_mgi->setMaxAccelerationScalingFactor(1.0);
+    left_arm_mgi->setPlanningTime(5);
     left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
-
-    // right_arm_mgi->setPlannerId("AnytimePathShortening");
-    // right_gripper_mgi->setPlannerId("AnytimePathShortening");
-    // left_arm_mgi->setPlannerId("AnytimePathShortening");
-    // left_gripper_mgi->setPlannerId("AnytimePathShortening");
+    left_gripper_mgi->setPlanningTime(5);
 
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
@@ -1027,12 +987,10 @@ int main(int argc, char **argv)
     visual_tools->publishText(text_pose, "NON VERBAL MOVEMENT TESTING", rvt::WHITE, rvt::XXLARGE);
     visual_tools->trigger();
 
-    addCollisionObjects(*planning_scene_interface);
+    // addCollisionObjects(*planning_scene_interface);
 
     HRI_Interface right_arm_hri(node_handle, right_arm_mgi, right_arm_jmg, right_gripper_mgi, right_gripper_jmg, planning_scene_interface, visual_tools);
     HRI_Interface left_arm_hri(node_handle, left_arm_mgi, left_arm_jmg, left_gripper_mgi, left_gripper_jmg, planning_scene_interface, visual_tools);
-
-    geometry_msgs::Pose pose = right_arm_mgi->getCurrentPose().pose;
 
     // for (const std::string &link_name : right_arm_mgi->getLinkNames())
     // {
@@ -1054,6 +1012,8 @@ int main(int argc, char **argv)
     int choice;
     bool mode = true;
     string input;
+    string str1, str2;
+    Eigen::Vector3d rotationInfo;
     do
     {
         cout << "MENU:\n"
@@ -1061,8 +1021,8 @@ int main(int argc, char **argv)
              << "2. EXECUTE SCREW UNSCREW\n"
              << "3. CHANGE MODE SCREW UNSCREW\n"
              << "4. POINT TO\n"
-             << "5. ROTATE LEFT\n"
-             << "6. ROTATE RIGHT\n"
+             << "5. ROTATE\n"
+             << "6. ...\n"
              << "7. SIGNAL PICK\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
@@ -1103,13 +1063,43 @@ int main(int argc, char **argv)
             left_arm_hri.pointToObject(input, "my_marker");
             break;
         case 5:
-            right_arm_hri.signalRotateLeft();
-            left_arm_hri.signalRotateLeft();
+            // cout << "Axis [x,y,z]: ";
+            // cin >> str1;
+            // cout << "Direction [1, -1]: ";
+            // cin >> str2;
+            // if (str1 == "x")
+            // {
+            //     rotationInfo.x() = stoi(str2);
+            //     rotationInfo.normalize();
+            // }
+            // if (str1 == "y")
+            // {
+            //     rotationInfo.y() = stoi(str2);
+            //     rotationInfo.normalize();
+            // }
+            // if (str1 == "z")
+            // {
+            //     rotationInfo.z() = stoi(str2);
+            //     rotationInfo.normalize();
+            // }
+            cout << "X 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(1, 0, 0));
+            cout << "X -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
+            cout << "Y 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
+            cout << "Y -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
+            cout << "Z 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
+            cout << "Z -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
+            // left_arm_hri.signalRotate(str1, Eigen::Vector3d(1, 0, 0));
 
             break;
         case 6:
-            right_arm_hri.signalRotateRight();
-            left_arm_hri.signalRotateRight();
+            // right_arm_hri.signalRotateRight();
+            // left_arm_hri.signalRotateRight();
             break;
         case 7:
             right_arm_hri.signalPick();
