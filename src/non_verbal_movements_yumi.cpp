@@ -51,6 +51,9 @@ public:
         // Subscribe to Transform Service
         transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
         ikService = n_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
+        planningSceneClient = n_.serviceClient<moveit_msgs::GetPlanningScene>("get_planning_scene");
+
+        planning_scene_ = std::make_shared<planning_scene::PlanningScene>(arm_mgi_->getRobotModel());
 
         prePlanPick();
     }
@@ -368,7 +371,7 @@ public:
         visual_tools_->deleteAllMarkers();
     }
 
-    void pointToObject(std::string object_id, string target_frame)
+    void pointToObject(std::string object_id)
     {
 
         visual_tools_->deleteAllMarkers();
@@ -431,9 +434,19 @@ public:
         visual_tools_->trigger();
 
         arm_mgi_->setStartStateToCurrentState();
-        arm_mgi_->setPoseTarget(lookPose);
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        if (!computeLookPose(arm_state, lookPose, object_pose, 10, 2.0, 2.0))
+        {
+            return;
+        }
+
+        std::vector<double> lookPose_joint_positions;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
+        arm_mgi_->setJointValueTarget(lookPose_joint_positions);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         arm_mgi_->plan(plan);
+        arm_mgi_->execute(plan);
     }
 
     void pointToHuman(string target_frame)
@@ -441,11 +454,6 @@ public:
         // TODO - Finish pointToHuman
 
         visual_tools_->deleteAllMarkers();
-
-        // Obtain object from scene
-        std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
-
-        // Create a vector from shoulder to object to calculate pose
 
         // Calculate New Pose Looking at Human
         geometry_msgs::TransformStamped targetTransform;
@@ -498,9 +506,25 @@ public:
         visual_tools_->trigger();
 
         arm_mgi_->setStartStateToCurrentState();
-        arm_mgi_->setPoseTarget(lookPose);
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        geometry_msgs::Pose humanPose;
+        humanPose.position.x = targetTransform.transform.translation.x;
+        humanPose.position.y = targetTransform.transform.translation.y;
+        humanPose.position.z = targetTransform.transform.translation.z;
+        humanPose.orientation.w = 1;
+
+        if (!computeLookPose(arm_state, lookPose, humanPose, 10, 2.0, 2.0))
+        {
+            return;
+        }
+
+        std::vector<double> lookPose_joint_positions;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
+        arm_mgi_->setJointValueTarget(lookPose_joint_positions);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         arm_mgi_->plan(plan);
+        arm_mgi_->execute(plan);
     }
 
     void signalPick()
@@ -530,10 +554,18 @@ public:
         // Obtain object from scene
         std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
 
-        // TODO - Protect from input
+        const double tolerance = 1e-6;
         if (objects.count(object_id) == 0)
         {
-            ROS_WARN("PROTECTION NOT IMPLEMENTED");
+            ROS_ERROR("Object does not exist.");
+            return;
+        }
+        if (!(rotationInfo.isApprox(Eigen::Vector3d(1, 0, 0), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(-1, 0, 0), tolerance) ||
+              rotationInfo.isApprox(Eigen::Vector3d(0, 1, 0), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(0, -1, 0), tolerance) ||
+              rotationInfo.isApprox(Eigen::Vector3d(0, 0, 1), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(0, 0, -1), tolerance)))
+        {
+            ROS_ERROR("Rotation information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
+            return;
         }
 
         // Find position of object
@@ -599,10 +631,13 @@ public:
         arm_mgi_->setStartStateToCurrentState();
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
 
-        while (!arm_state.setFromIK(arm_jmg_, lookPose))
-            ;
+        if (!computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
+        {
+            return;
+        }
 
-        std::vector<double> lookPose_joint_values;
+        std::vector<double>
+            lookPose_joint_values;
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
 
         double maxBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).max_position_;
@@ -646,14 +681,19 @@ public:
 
         arm_mgi_->setJointValueTarget(rotated_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan first_rotation;
-        arm_mgi_->plan(first_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        arm_mgi_->plan(first_rotation);
 
         // Set Pre-Rotation Position as JointValueTarget and Plan
         arm_state.setJointGroupPositions(arm_jmg_, rotated_joint_values);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan second_rotation;
-        arm_mgi_->plan(second_rotation) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        arm_mgi_->plan(second_rotation);
+
+        for (double i : lookPose_joint_values)
+            cout << i << endl;
+        for (double i : rotated_joint_values)
+            cout << i << endl;
 
         arm_mgi_->execute(first_movement);
         arm_mgi_->execute(first_rotation);
@@ -668,14 +708,25 @@ private:
     const moveit::core::JointModelGroup *gripper_jmg_;
     std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface_;
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
+    std::shared_ptr<planning_scene::PlanningScene> planning_scene_;
 
     ros::ServiceClient transform_listener;
     ros::ServiceClient ikService;
+    ros::ServiceClient planningSceneClient;
 
     moveit::planning_interface::MoveGroupInterface::Plan openPlan;
     moveit::planning_interface::MoveGroupInterface::Plan closePlan;
     std::vector<double> closedJointValues;
     std::vector<double> openedJointValues;
+
+    void updatePlanningScene(std::shared_ptr<planning_scene::PlanningScene> planning_scene)
+    {
+        moveit_msgs::GetPlanningScene::Request req;
+        moveit_msgs::GetPlanningScene::Response res;
+
+        if (planningSceneClient.call(req, res))
+            planning_scene->setPlanningSceneMsg(res.scene); // apply result to actual PlanningScene
+    }
 
     void prePlanPick()
     {
@@ -726,6 +777,110 @@ private:
         }
 
         return closestApproachOption;
+    }
+
+    vector<geometry_msgs::Pose> computePointsOnSphere(int numPoints, geometry_msgs::Point point, geometry_msgs::Point reference_position, double theta_distance, double phi_distance)
+    {
+        double theta, phi; // Polar and azimuthal angles
+
+        // Convert given point to spherical coordinates
+
+        double x = point.x - reference_position.x;
+        double y = point.y - reference_position.y;
+        double z = point.z - reference_position.z;
+
+        double r = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+        theta = acos(z / r);
+        phi = atan2(y, x);
+
+        std::vector<geometry_msgs::Pose> poses;
+
+        // Compute points around the given point on the sphere
+        for (int i = -numPoints / 2; i < numPoints / 2; ++i)
+        {
+            double newTheta = theta + (i * theta_distance / numPoints); // Incrementing the polar angle
+            for (int j = -numPoints / 2; j < numPoints / 2; ++j)
+            {
+                double newPhi = phi + (j * phi_distance / numPoints); // Incrementing the azimuthal angle
+                geometry_msgs::Pose newPoint;
+                newPoint.position.x = r * sin(newTheta) * cos(newPhi);
+                newPoint.position.y = r * sin(newTheta) * sin(newPhi);
+                newPoint.position.z = r * cos(newTheta);
+
+                double sideAngle = atan2(newPoint.position.y, newPoint.position.x);
+                double tiltAngle = -M_PI_2 - atan2(newPoint.position.z, sqrt(pow(newPoint.position.x, 2) + pow(newPoint.position.y, 2)));
+
+                tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+                tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+                tf2::Quaternion qresult = q1 * q2;
+                qresult.normalize();
+
+                geometry_msgs::Quaternion q_msg;
+                tf2::convert(qresult, q_msg);
+
+                newPoint.position.x += reference_position.x;
+                newPoint.position.y += reference_position.y;
+                newPoint.position.z += reference_position.z;
+                newPoint.orientation = q_msg;
+
+                poses.push_back(newPoint);
+
+                // visual_tools_->publishAxis(newPoint);
+                // visual_tools_->trigger();
+            }
+        }
+
+        std::sort(poses.begin(), poses.end(), [&point](const geometry_msgs::Pose &p1, const geometry_msgs::Pose &p2)
+                  {
+            double d1 = sqrt(pow(p1.position.x - point.x, 2) + pow(p1.position.y - point.y, 2) + pow(p1.position.z - point.z, 2));
+            double d2 = sqrt(pow(p2.position.x - point.x, 2) + pow(p2.position.y - point.y, 2) + pow(p2.position.z - point.z, 2));
+            return (d1 < d2); });
+
+        return poses;
+    }
+
+    bool computeLookPose(moveit::core::RobotState &arm_state, geometry_msgs::Pose lookPose, geometry_msgs::Pose focus_position, int numPoints, double theta, double phi)
+    {
+        updatePlanningScene(planning_scene_);
+
+        bool ik_success = arm_state.setFromIK(arm_jmg_, lookPose, 1.0);
+        collision_detection::CollisionRequest collision_request;
+        collision_detection::CollisionResult collision_result;
+        planning_scene_->getCurrentStateNonConst() = arm_state;
+        planning_scene_->checkCollision(collision_request, collision_result);
+
+        ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
+        ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
+        if (!(ik_success && !collision_result.collision))
+        {
+            std::vector<geometry_msgs::Pose> pose_vector = computePointsOnSphere(numPoints, lookPose.position, focus_position.position, theta, phi);
+            for (const auto &pose : pose_vector)
+            {
+
+                visual_tools_->publishAxis(pose);
+                visual_tools_->trigger();
+
+                ik_success = arm_state.setFromIK(arm_jmg_, pose, 1.0);
+
+                collision_result.clear();
+                planning_scene_->getCurrentStateNonConst() = arm_state;
+                planning_scene_->checkCollision(collision_request, collision_result);
+
+                ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
+                ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
+
+                if (ik_success && !collision_result.collision)
+                    break;
+            }
+
+            if (!(ik_success && !collision_result.collision))
+            {
+                ROS_ERROR("Pose cannot be achieved.");
+                return false;
+            }
+        }
+
+        return true;
     }
 };
 
@@ -965,16 +1120,20 @@ int main(int argc, char **argv)
     right_arm_mgi->setMaxVelocityScalingFactor(1.0);
     right_arm_mgi->setMaxAccelerationScalingFactor(1.0);
     right_arm_mgi->setPlanningTime(5);
+    right_arm_mgi->allowReplanning(true);
     right_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     right_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
     right_gripper_mgi->setPlanningTime(5);
+    right_gripper_mgi->allowReplanning(true);
 
     left_arm_mgi->setMaxVelocityScalingFactor(1.0);
     left_arm_mgi->setMaxAccelerationScalingFactor(1.0);
     left_arm_mgi->setPlanningTime(5);
+    left_arm_mgi->allowReplanning(true);
     left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
     left_gripper_mgi->setPlanningTime(5);
+    left_gripper_mgi->allowReplanning(true);
 
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
@@ -991,23 +1150,6 @@ int main(int argc, char **argv)
 
     HRI_Interface right_arm_hri(node_handle, right_arm_mgi, right_arm_jmg, right_gripper_mgi, right_gripper_jmg, planning_scene_interface, visual_tools);
     HRI_Interface left_arm_hri(node_handle, left_arm_mgi, left_arm_jmg, left_gripper_mgi, left_gripper_jmg, planning_scene_interface, visual_tools);
-
-    // for (const std::string &link_name : right_arm_mgi->getLinkNames())
-    // {
-    //     std::cout << "Right Arm \n";
-    //     std::cout << "Link name: " << link_name << std::endl;
-    // }
-
-    // for (const std::string &link_name : right_gripper_mgi->getLinkNames())
-    // {
-    //     std::cout << "Right Gripper \n";
-    //     std::cout << "Link name: " << link_name << std::endl;
-    // }
-
-    // for (const std::string &joint_name : move_group_interface->getActiveJoints())
-    // {
-    //     std::cout << "Joint name: " << joint_name << std::endl;
-    // }
 
     int choice;
     bool mode = true;
@@ -1059,41 +1201,22 @@ int main(int argc, char **argv)
         case 4:
             cout << "Enter \"object id\" to point to:";
             cin >> input;
-            right_arm_hri.pointToObject(input, "my_marker");
-            left_arm_hri.pointToObject(input, "my_marker");
+            right_arm_hri.pointToObject(input);
+            left_arm_hri.pointToObject(input);
             break;
         case 5:
-            // cout << "Axis [x,y,z]: ";
-            // cin >> str1;
-            // cout << "Direction [1, -1]: ";
-            // cin >> str2;
-            // if (str1 == "x")
-            // {
-            //     rotationInfo.x() = stoi(str2);
-            //     rotationInfo.normalize();
-            // }
-            // if (str1 == "y")
-            // {
-            //     rotationInfo.y() = stoi(str2);
-            //     rotationInfo.normalize();
-            // }
-            // if (str1 == "z")
-            // {
-            //     rotationInfo.z() = stoi(str2);
-            //     rotationInfo.normalize();
-            // }
             cout << "X 1\n";
             right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(1, 0, 0));
-            cout << "X -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
-            cout << "Y 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
-            cout << "Y -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
-            cout << "Z 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
-            cout << "Z -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
+            // cout << "X -1\n";
+            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
+            // cout << "Y 1\n";
+            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
+            // cout << "Y -1\n";
+            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
+            // cout << "Z 1\n";
+            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
+            // cout << "Z -1\n";
+            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
             // left_arm_hri.signalRotate(str1, Eigen::Vector3d(1, 0, 0));
 
             break;
