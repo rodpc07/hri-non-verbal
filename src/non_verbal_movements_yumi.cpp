@@ -23,6 +23,10 @@
 #include "tf2_ros/message_filter.h"
 #include "message_filters/subscriber.h"
 
+#include <moveit/collision_detection_bullet/collision_env_bullet.h>
+#include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
+#include <moveit/collision_detection/collision_tools.h>
+
 #include <iostream>
 #include <string>
 
@@ -54,6 +58,7 @@ public:
         planningSceneClient = n_.serviceClient<moveit_msgs::GetPlanningScene>("get_planning_scene");
 
         planning_scene_ = std::make_shared<planning_scene::PlanningScene>(arm_mgi_->getRobotModel());
+        planning_scene_->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(), true);
 
         prePlanPick();
     }
@@ -444,6 +449,97 @@ public:
         std::vector<double> lookPose_joint_positions;
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
         arm_mgi_->setJointValueTarget(lookPose_joint_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        arm_mgi_->plan(plan);
+        arm_mgi_->execute(plan);
+    }
+
+    void pointToObjectSide(string object_id, Eigen::Vector3d sideInfo)
+    {
+
+        visual_tools_->deleteAllMarkers();
+
+        // Obtain object from scene
+        std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface_->getObjects();
+
+        const double tolerance = 1e-6;
+        if (objects.count(object_id) == 0)
+        {
+            ROS_ERROR("Object does not exist.");
+            return;
+        }
+        if (!(sideInfo.isApprox(Eigen::Vector3d(1, 0, 0), tolerance) || sideInfo.isApprox(Eigen::Vector3d(-1, 0, 0), tolerance) ||
+              sideInfo.isApprox(Eigen::Vector3d(0, 1, 0), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, -1, 0), tolerance) ||
+              sideInfo.isApprox(Eigen::Vector3d(0, 0, 1), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, 0, -1), tolerance)))
+        {
+            ROS_ERROR("Rotation information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
+            return;
+        }
+
+        // Find position of object
+        moveit_msgs::CollisionObject object = objects[object_id];
+        geometry_msgs::Pose object_pose = object.pose;
+
+        double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
+        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
+        visual_tools_->publishAxis(object_pose);
+        visual_tools_->trigger();
+
+        // Create a vector from shoulder to object to calculate pose
+
+        geometry_msgs::TransformStamped linkTransform;
+        planner::TransformListener transformListenerMsg;
+
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
+
+        Eigen::Isometry3d objectEigen;
+        visual_tools_->convertPoseSafe(object_pose, objectEigen);
+
+        objectEigen.translate(sideInfo * (radius + 0.1));
+
+        visual_tools_->publishAxis(objectEigen);
+        visual_tools_->trigger();
+
+        double xTarget = object_pose.position.x - objectEigen.translation().x();
+        double yTarget = object_pose.position.y - objectEigen.translation().y();
+        double zTarget = object_pose.position.z - objectEigen.translation().z();
+
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+        tf2::Quaternion qresult = q1 * q2;
+        qresult.normalize();
+
+        geometry_msgs::Quaternion q_msg;
+        tf2::convert(qresult, q_msg);
+
+        geometry_msgs::Pose lookPose;
+        lookPose.position.x = objectEigen.translation().x();
+        lookPose.position.y = objectEigen.translation().y();
+        lookPose.position.z = objectEigen.translation().z();
+        lookPose.orientation = q_msg;
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        if (!computeLookPose(arm_state, lookPose, object_pose, 10, 0.75, 0.75))
+        {
+            return;
+        }
+
+        std::vector<double>
+            lookPose_joint_values;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
+
+        arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         arm_mgi_->plan(plan);
         arm_mgi_->execute(plan);
@@ -845,6 +941,9 @@ private:
 
         bool ik_success = arm_state.setFromIK(arm_jmg_, lookPose, 1.0);
         collision_detection::CollisionRequest collision_request;
+        collision_request.contacts = false;
+        collision_request.distance = false;
+        collision_request.cost = false;
         collision_detection::CollisionResult collision_result;
         planning_scene_->getCurrentStateNonConst() = arm_state;
         planning_scene_->checkCollision(collision_request, collision_result);
@@ -860,7 +959,7 @@ private:
                 visual_tools_->publishAxis(pose);
                 visual_tools_->trigger();
 
-                ik_success = arm_state.setFromIK(arm_jmg_, pose, 1.0);
+                ik_success = arm_state.setFromIK(arm_jmg_, pose, 0.7);
 
                 collision_result.clear();
                 planning_scene_->getCurrentStateNonConst() = arm_state;
@@ -1139,6 +1238,7 @@ int main(int argc, char **argv)
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
     visual_tools->loadRemoteControl();
+    visual_tools->setGlobalScale(0.4);
 
     // RViz provides many types of markers, in this demo we will use text, cylinders, and spheres
     Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
@@ -1162,10 +1262,11 @@ int main(int argc, char **argv)
              << "1. GO TO TARGET\n"
              << "2. EXECUTE SCREW UNSCREW\n"
              << "3. CHANGE MODE SCREW UNSCREW\n"
-             << "4. POINT TO\n"
-             << "5. ROTATE\n"
-             << "6. ...\n"
-             << "7. SIGNAL PICK\n"
+             << "4. POINT TO OBJECT\n"
+             << "5. POINT TO OBJECT SIDE\n"
+             << "6. POINT TO HUMAN\n"
+             << "7. ROTATE\n"
+             << "8. SIGNAL PICK\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -1205,32 +1306,32 @@ int main(int argc, char **argv)
             left_arm_hri.pointToObject(input);
             break;
         case 5:
-            cout << "X 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(1, 0, 0));
-            // cout << "X -1\n";
-            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
-            // cout << "Y 1\n";
-            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
-            // cout << "Y -1\n";
-            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
-            // cout << "Z 1\n";
-            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
-            // cout << "Z -1\n";
-            // right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
-            // left_arm_hri.signalRotate(str1, Eigen::Vector3d(1, 0, 0));
-
+            cout << "Enter \"object id\" to point to:";
+            cin >> input;
+            right_arm_hri.pointToObjectSide(input, Eigen::Vector3d(1, 0, 0));
+            left_arm_hri.pointToObjectSide(input, Eigen::Vector3d(1, 0, 0));
             break;
         case 6:
-            // right_arm_hri.signalRotateRight();
-            // left_arm_hri.signalRotateRight();
-            break;
-        case 7:
-            right_arm_hri.signalPick();
-            left_arm_hri.signalPick();
-            break;
-        case 8:
             right_arm_hri.pointToHuman("my_marker");
             left_arm_hri.pointToHuman("my_marker");
+            break;
+        case 7:
+            cout << "X 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(1, 0, 0));
+            cout << "X -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
+            cout << "Y 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
+            cout << "Y -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
+            cout << "Z 1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
+            cout << "Z -1\n";
+            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
+            break;
+        case 8:
+            right_arm_hri.signalPick();
+            left_arm_hri.signalPick();
             break;
         case 0:
             cout << "Exiting the program...\n";
