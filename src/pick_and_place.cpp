@@ -2,22 +2,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_interface/planning_interface.h>
 
-#include <moveit_msgs/DisplayRobotState.h>
-#include <moveit_msgs/DisplayTrajectory.h>
-
-#include <moveit_msgs/AttachedCollisionObject.h>
-#include <moveit_msgs/CollisionObject.h>
-
 #include <moveit_visual_tools/moveit_visual_tools.h>
-
-#include <visualization_msgs/Marker.h>
-#include <interactive_markers/interactive_marker_server.h>
-
-#include <moveit/robot_state/robot_state.h>
-#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/kinematic_constraints/utils.h>
-#include <moveit/planning_pipeline/planning_pipeline.h>
-#include <moveit/robot_state/conversions.h>
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
@@ -30,7 +15,6 @@ using namespace std;
 
 void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
 {
-    // BEGIN_SUB_TUTORIAL pick1
     // Create a vector of grasps to be attempted, currently only creating single grasp.
     // This is essentially useful when using a grasp generator to generate and test multiple grasps.
     std::vector<moveit_msgs::Grasp> grasps;
@@ -59,27 +43,27 @@ void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::plann
     grasps[0].post_grasp_retreat.desired_distance = 0.25;
 
     // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         grasps[0].pre_grasp_posture.joint_names.push_back(joint_name);
     };
 
     grasps[0].pre_grasp_posture.points.resize(1);
     grasps[0].pre_grasp_posture.points[0].positions.resize(2);
-    grasps[0].pre_grasp_posture.points[0].positions[0] = 0.025;
-    grasps[0].pre_grasp_posture.points[0].positions[1] = 0.025;
+    grasps[0].pre_grasp_posture.points[0].positions[0] = 0.020;
+    grasps[0].pre_grasp_posture.points[0].positions[1] = 0.020;
     grasps[0].pre_grasp_posture.points[0].time_from_start = ros::Duration(0.5);
 
     // Close Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         grasps[0].grasp_posture.joint_names.push_back(joint_name);
     };
 
     grasps[0].grasp_posture.points.resize(1);
     grasps[0].grasp_posture.points[0].positions.resize(2);
-    grasps[0].grasp_posture.points[0].positions[0] = 0.00;
-    grasps[0].grasp_posture.points[0].positions[1] = 0.00;
+    grasps[0].grasp_posture.points[0].positions[0] = 0.01;
+    grasps[0].grasp_posture.points[0].positions[1] = 0.01;
     grasps[0].grasp_posture.points[0].time_from_start = ros::Duration(0.5);
 
     arm_mgi.setSupportSurfaceName("table1");
@@ -114,7 +98,7 @@ void place(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::plan
     place_location[0].post_place_retreat.desired_distance = 0.25;
 
     // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         place_location[0].post_place_posture.joint_names.push_back(joint_name);
     };
@@ -210,33 +194,6 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     planning_scene_interface.applyCollisionObjects(collision_objects);
 }
 
-void printPose(moveit::planning_interface::MoveGroupInterface &group)
-{
-    geometry_msgs::PoseStamped poseStamped = group.getCurrentPose();
-
-    std::cout << "PoseStamped: " << group.getName().c_str() << ";\n";
-    std::cout << "pose.position.x = " << poseStamped.pose.position.x << ";\n";
-    std::cout << "pose.position.y = " << poseStamped.pose.position.y << ";\n";
-    std::cout << "pose.position.z = " << poseStamped.pose.position.z << ";\n";
-    std::cout << "pose.orientation.x = " << poseStamped.pose.orientation.x << ";\n";
-    std::cout << "pose.orientation.y = " << poseStamped.pose.orientation.y << ";\n";
-    std::cout << "pose.orientation.z = " << poseStamped.pose.orientation.z << ";\n";
-    std::cout << "pose.orientation.w = " << poseStamped.pose.orientation.w << ";\n";
-}
-
-void printPose(moveit_msgs::CollisionObject object)
-{
-    geometry_msgs::Pose pose = object.pose;
-
-    std::cout << "pose.position.x = " << pose.position.x << ";\n";
-    std::cout << "pose.position.y = " << pose.position.y << ";\n";
-    std::cout << "pose.position.z = " << pose.position.z << ";\n";
-    std::cout << "pose.orientation.x = " << pose.orientation.x << ";\n";
-    std::cout << "pose.orientation.y = " << pose.orientation.y << ";\n";
-    std::cout << "pose.orientation.z = " << pose.orientation.z << ";\n";
-    std::cout << "pose.orientation.w = " << pose.orientation.w << ";\n";
-}
-
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "pick_and_place");
@@ -282,56 +239,13 @@ int main(int argc, char **argv)
     visual_tools->publishText(text_pose, "PICK AND PLACE TESTING", rvt::WHITE, rvt::XXLARGE);
     visual_tools->trigger();
 
-    std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface->getObjects();
-
-    // Find position of object
-    moveit_msgs::CollisionObject object = objects["object"];
-
     addCollisionObjects(*planning_scene_interface);
 
-    int choice;
-    bool mode = true;
-    string input;
-    do
-    {
-        cout << "MENU:\n"
-             << "1. PRINT POSE\n"
-             << "2. PICK\n"
-             << "3. PLACE\n"
-             << "4. PRINT OBJECT POSE\n"
-             << "0. EXIT\n"
-             << "Enter your choice: ";
-        cin >> choice;
+    cout << "PICK.\n";
+    pick(*left_arm_mgi, *left_gripper_mgi);
 
-        switch (choice)
-        {
-        case 1:
-            cout << "PRINTING POSE.\n";
-            printPose(*right_arm_mgi);
-            printPose(*left_arm_mgi);
-            break;
-        case 2:
-            cout << "PICK.\n";
-            pick(*left_arm_mgi, *left_gripper_mgi);
-            break;
-        case 3:
-            cout << "PLACE.\n";
-            place(*left_arm_mgi, *left_gripper_mgi);
-            break;
-        case 4:
-            cout << "PRINTING POSE.\n";
-            objects = planning_scene_interface->getObjects();
-            object = objects["object"];
-            printPose(object);
-            break;
-        case 0:
-            cout << "Exiting the program...\n";
-            break;
-        default:
-            cout << "Invalid choice. Please try again.\n";
-            break;
-        }
-    } while (choice != 0);
+    cout << "PLACE.\n";
+    place(*left_arm_mgi, *left_gripper_mgi);
 
     ros::shutdown();
     return 0;

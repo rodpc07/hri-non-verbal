@@ -60,6 +60,8 @@ public:
         planning_scene_ = std::make_shared<planning_scene::PlanningScene>(arm_mgi_->getRobotModel());
         planning_scene_->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(), true);
 
+        // TODO - FIX planning lines with if's
+
         prePlanPick();
     }
 
@@ -198,8 +200,6 @@ public:
 
     void attention(std::string target_frame)
     {
-        // TODO - Finish Movement
-
         arm_mgi_->setStartStateToCurrentState();
 
         geometry_msgs::TransformStamped targetTransform;
@@ -220,7 +220,17 @@ public:
         linkTransform = transformListenerMsg.response.transformStamped;
 
         // This joint values set the pose of the arm in a V shape (depends on robot morphology)
-        std::vector<double> joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 90 * (M_PI / 180), 0, 0};
+
+        std::vector<double> joint_group_positions;
+        if (!arm_mgi_->getName().compare("right_arm"))
+        {
+            joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 90 * (M_PI / 180), 0, 0};
+        }
+        else
+        {
+            joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), -90 * (M_PI / 180), 0, 0};
+        }
+
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
         arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
 
@@ -243,28 +253,26 @@ public:
         arm_mgi_->setJointValueTarget(joint_group_positions);
 
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
-
         arm_mgi_->plan(arm_plan_1);
-        arm_mgi_->execute(arm_plan_1);
 
         // Next are planned in advance 4 motions to simulate waving, later executed sequecially
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_1.trajectory_.joint_trajectory.points.back().positions);
-        joint_group_positions.at(5) = -45 * (M_PI / 180);
+        joint_group_positions.at(5) = -25 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_2;
         arm_mgi_->plan(arm_plan_2);
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
-        joint_group_positions.at(5) = 45 * (M_PI / 180);
+        joint_group_positions.at(5) = 25 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_3;
         arm_mgi_->plan(arm_plan_3);
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_3.trajectory_.joint_trajectory.points.back().positions);
-        joint_group_positions.at(5) = -45 * (M_PI / 180);
+        joint_group_positions.at(5) = -25 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_4;
@@ -277,6 +285,7 @@ public:
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_5;
         arm_mgi_->plan(arm_plan_5);
 
+        arm_mgi_->execute(arm_plan_1);
         arm_mgi_->execute(arm_plan_2);
         arm_mgi_->execute(arm_plan_3);
         arm_mgi_->execute(arm_plan_4);
@@ -329,7 +338,6 @@ public:
 
         do
         {
-
             geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
             std::vector<geometry_msgs::Pose> waypoints;
 
@@ -472,7 +480,7 @@ public:
               sideInfo.isApprox(Eigen::Vector3d(0, 1, 0), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, -1, 0), tolerance) ||
               sideInfo.isApprox(Eigen::Vector3d(0, 0, 1), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, 0, -1), tolerance)))
         {
-            ROS_ERROR("Rotation information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
+            ROS_ERROR("Side information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
             return;
         }
 
@@ -547,8 +555,6 @@ public:
 
     void pointToHuman(string target_frame)
     {
-        // TODO - Finish pointToHuman
-
         visual_tools_->deleteAllMarkers();
 
         // Calculate New Pose Looking at Human
@@ -845,11 +851,6 @@ private:
         gripper_mgi_->plan(openPlan);
     }
 
-    double calculateDistance(const Eigen::Isometry3d &pose1, const Eigen::Isometry3d &pose2)
-    {
-        return (pose1.translation() - pose2.translation()).norm();
-    }
-
     Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const geometry_msgs::TransformStamped &linkTransform)
     {
         Eigen::Isometry3d closestApproachOption;
@@ -862,7 +863,7 @@ private:
         {
 
             // Calculate distance between linkEigen and the current approach option
-            double distance = calculateDistance(linkEigen, approachOption);
+            double distance = (linkEigen.translation() - approachOption.translation()).norm();
 
             // Update the closestApproachOption if the current distance is smaller
             if (distance < minDistance)
@@ -920,9 +921,6 @@ private:
                 newPoint.orientation = q_msg;
 
                 poses.push_back(newPoint);
-
-                // visual_tools_->publishAxis(newPoint);
-                // visual_tools_->trigger();
             }
         }
 
@@ -1014,7 +1012,7 @@ void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::plann
     grasps[0].post_grasp_retreat.desired_distance = 0.25;
 
     // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         grasps[0].pre_grasp_posture.joint_names.push_back(joint_name);
     };
@@ -1026,7 +1024,7 @@ void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::plann
     grasps[0].pre_grasp_posture.points[0].time_from_start = ros::Duration(0.5);
 
     // Close Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         grasps[0].grasp_posture.joint_names.push_back(joint_name);
     };
@@ -1069,7 +1067,7 @@ void place(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::plan
     place_location[0].post_place_retreat.desired_distance = 0.25;
 
     // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getJointNames())
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
     {
         place_location[0].post_place_posture.joint_names.push_back(joint_name);
     };

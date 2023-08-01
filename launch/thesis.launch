@@ -1,0 +1,233 @@
+<launch>
+
+  <!-- MOVEIT! -->
+
+  <arg name="pipeline" default="ompl" />
+  <arg name="db" default="false" />
+  <arg name="db_path" default="$(find yumi_moveit_config)/default_warehouse_mongo_db" />
+
+  <arg name="debug" default="false" />
+
+  <arg name="load_robot_description" default="true"/>
+
+  <arg name="moveit_controller_manager" default="fake" />
+  <arg name="fake_execution_type" default="interpolate" />
+
+  <arg name="use_gui" default="false" />
+  <arg name="use_rviz" default="true" />
+
+  <node pkg="tf2_ros" type="static_transform_publisher" name="virtual_joint_broadcaster_0" args="0 0 0 0 0 0 world yumi_base_link" />
+
+  <group if="$(eval arg('moveit_controller_manager') == 'fake')">
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" unless="$(arg use_gui)">
+      <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+    </node>
+    <node name="joint_state_publisher" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" if="$(arg use_gui)">
+      <rosparam param="source_list">[move_group/fake_controller_joint_states]</rosparam>
+    </node>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
+  </group>
+
+  <include file="$(find yumi_moveit_config)/launch/move_group.launch">
+    <arg name="allow_trajectory_execution" value="true"/>
+    <arg name="moveit_controller_manager" value="$(arg moveit_controller_manager)" />
+    <arg name="fake_execution_type" value="$(arg fake_execution_type)"/>
+    <arg name="info" value="true"/>
+    <arg name="debug" value="$(arg debug)"/>
+    <arg name="pipeline" value="$(arg pipeline)"/>
+    <arg name="load_robot_description" value="$(arg load_robot_description)"/>
+  </include>
+
+  <include file="$(find yumi_moveit_config)/launch/moveit_rviz.launch" if="$(arg use_rviz)">
+    <arg name="rviz_config" value="$(dirname)/moveit.rviz"/>
+    <arg name="debug" value="$(arg debug)"/>
+  </include>
+
+  <include file="$(find yumi_moveit_config)/launch/default_warehouse_db.launch" if="$(arg db)">
+    <arg name="moveit_warehouse_database_path" value="$(arg db_path)"/>
+  </include>
+
+
+  <!-- HRI FULLBODY -->
+
+  <arg name="rgb_camera" default="/camera/color/"/>
+    <arg name="rgb_camera_topic" default="$(arg rgb_camera)/image_raw"/>
+    <arg name="rgb_camera_info" default="$(arg rgb_camera)/camera_info"/>
+
+    <arg name="use_depth" default="True"/>
+    <arg name="depth_camera" default="/camera/depth/"/>
+    <arg name="depth_camera_topic" default="$(arg depth_camera)/image_rect_raw"/>
+    <arg name="depth_camera_info" default="$(arg depth_camera)/camera_info"/>
+
+    <!-- console output of detected bounding boxes, meant for single body execution -->
+    <arg name="textual_debug" default="False"/>
+
+    <!-- publishes a TF tree of the joints, *without* performing IK kinematics to
+         properly align the joints' frames to the kinematci model of the human -->
+    <arg name="stickman_debug" default="False"/>
+
+     <!-- 
+      If 'single_body' is False, hri_fullbody waits for bodies Region of Interests to be published on /humans/bodies/xxx/roi, and it uses those RoIs to perform 3D skeleton estimation.
+      If 'single_body' is True, the node will not use external body detections, and instead will detect *a single* person, and provide the RoI + 3D skeleton of that person.
+    -->
+    <arg name="single_body" default="True"/>
+
+    <include file="$(find hri_fullbody)/launch/hri_fullbody.launch" pass_all_args="true" />
+
+  <!-- INTEL REALSENSE -->
+
+  <arg name="serial_no"           default=""/>
+  <arg name="usb_port_id"         default=""/>
+  <arg name="device_type"         default="d435"/>
+  <arg name="json_file_path"      default=""/>
+  <arg name="camera"              default="camera"/>
+  <arg name="tf_prefix"           default="$(arg camera)"/>
+  <arg name="external_manager"    default="false"/>
+  <arg name="manager"             default="realsense2_camera_manager"/>
+  <arg name="output"              default="screen"/>
+  <arg name="respawn"              default="false"/>
+
+  <arg name="fisheye_width"       default="-1"/>
+  <arg name="fisheye_height"      default="-1"/>
+  <arg name="enable_fisheye"      default="false"/>
+
+  <arg name="depth_width"         default="-1"/>
+  <arg name="depth_height"        default="-1"/>
+  <arg name="enable_depth"        default="true"/>
+
+  <arg name="confidence_width"    default="-1"/>
+  <arg name="confidence_height"   default="-1"/>
+  <arg name="enable_confidence"   default="true"/>
+  <arg name="confidence_fps"      default="-1"/>
+
+  <arg name="infra_width"         default="848"/>
+  <arg name="infra_height"        default="480"/>
+  <arg name="enable_infra"        default="false"/>
+  <arg name="enable_infra1"       default="false"/>
+  <arg name="enable_infra2"       default="false"/>
+  <arg name="infra_rgb"           default="false"/>
+
+  <arg name="color_width"         default="-1"/>
+  <arg name="color_height"        default="-1"/>
+  <arg name="enable_color"        default="true"/>
+
+  <arg name="fisheye_fps"         default="-1"/>
+  <arg name="depth_fps"           default="-1"/>
+  <arg name="infra_fps"           default="30"/>
+  <arg name="color_fps"           default="-1"/>
+  <arg name="gyro_fps"            default="-1"/>
+  <arg name="accel_fps"           default="-1"/>
+  <arg name="enable_gyro"         default="false"/>
+  <arg name="enable_accel"        default="false"/>
+
+  <arg name="enable_pointcloud"         default="false"/>
+  <arg name="pointcloud_texture_stream" default="RS2_STREAM_COLOR"/>
+  <arg name="pointcloud_texture_index"  default="0"/>
+  <arg name="allow_no_texture_points"   default="false"/>
+  <arg name="ordered_pc"                default="false"/>
+
+  <arg name="enable_sync"               default="false"/>
+  <arg name="align_depth"               default="false"/>
+
+  <arg name="publish_tf"                default="true"/>
+  <arg name="tf_publish_rate"           default="0"/>
+
+  <arg name="filters"                   default=""/>
+  <arg name="clip_distance"             default="-2"/>
+  <arg name="linear_accel_cov"          default="0.01"/>
+  <arg name="initial_reset"             default="false"/>
+  <arg name="reconnect_timeout"         default="6.0"/>
+  <arg name="wait_for_device_timeout"   default="-1.0"/>
+  <arg name="unite_imu_method"          default=""/>
+  <arg name="topic_odom_in"             default="odom_in"/>
+  <arg name="calib_odom_file"           default=""/>
+  <arg name="publish_odom_tf"           default="true"/>
+
+  <arg name="stereo_module/exposure/1"  default="7500"/>
+  <arg name="stereo_module/gain/1"      default="16"/>
+  <arg name="stereo_module/exposure/2"  default="1"/>
+  <arg name="stereo_module/gain/2"      default="16"/>
+  
+  
+
+  <group ns="$(arg camera)">
+    <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
+      <arg name="tf_prefix"                value="$(arg tf_prefix)"/>
+      <arg name="external_manager"         value="$(arg external_manager)"/>
+      <arg name="manager"                  value="$(arg manager)"/>
+      <arg name="output"                   value="$(arg output)"/>
+      <arg name="respawn"                  value="$(arg respawn)"/>
+      <arg name="serial_no"                value="$(arg serial_no)"/>
+      <arg name="usb_port_id"              value="$(arg usb_port_id)"/>
+      <arg name="device_type"              value="$(arg device_type)"/>
+      <arg name="json_file_path"           value="$(arg json_file_path)"/>
+
+      <arg name="enable_pointcloud"        value="$(arg enable_pointcloud)"/>
+      <arg name="pointcloud_texture_stream" value="$(arg pointcloud_texture_stream)"/>
+      <arg name="pointcloud_texture_index"  value="$(arg pointcloud_texture_index)"/>
+      <arg name="enable_sync"              value="$(arg enable_sync)"/>
+      <arg name="align_depth"              value="$(arg align_depth)"/>
+
+      <arg name="fisheye_width"            value="$(arg fisheye_width)"/>
+      <arg name="fisheye_height"           value="$(arg fisheye_height)"/>
+      <arg name="enable_fisheye"           value="$(arg enable_fisheye)"/>
+
+      <arg name="depth_width"              value="$(arg depth_width)"/>
+      <arg name="depth_height"             value="$(arg depth_height)"/>
+      <arg name="enable_depth"             value="$(arg enable_depth)"/>
+
+      <arg name="confidence_width"         value="$(arg confidence_width)"/>
+      <arg name="confidence_height"        value="$(arg confidence_height)"/>
+      <arg name="enable_confidence"        value="$(arg enable_confidence)"/>
+      <arg name="confidence_fps"           value="$(arg confidence_fps)"/>
+
+      <arg name="color_width"              value="$(arg color_width)"/>
+      <arg name="color_height"             value="$(arg color_height)"/>
+      <arg name="enable_color"             value="$(arg enable_color)"/>
+
+      <arg name="infra_width"              value="$(arg infra_width)"/>
+      <arg name="infra_height"             value="$(arg infra_height)"/>
+      <arg name="enable_infra"             value="$(arg enable_infra)"/>
+      <arg name="enable_infra1"            value="$(arg enable_infra1)"/>
+      <arg name="enable_infra2"            value="$(arg enable_infra2)"/>
+      <arg name="infra_rgb"                value="$(arg infra_rgb)"/>
+
+      <arg name="fisheye_fps"              value="$(arg fisheye_fps)"/>
+      <arg name="depth_fps"                value="$(arg depth_fps)"/>
+      <arg name="infra_fps"                value="$(arg infra_fps)"/>
+      <arg name="color_fps"                value="$(arg color_fps)"/>
+      <arg name="gyro_fps"                 value="$(arg gyro_fps)"/>
+      <arg name="accel_fps"                value="$(arg accel_fps)"/>
+      <arg name="enable_gyro"              value="$(arg enable_gyro)"/>
+      <arg name="enable_accel"             value="$(arg enable_accel)"/>
+
+      <arg name="publish_tf"               value="$(arg publish_tf)"/>
+      <arg name="tf_publish_rate"          value="$(arg tf_publish_rate)"/>
+
+      <arg name="filters"                  value="$(arg filters)"/>
+      <arg name="clip_distance"            value="$(arg clip_distance)"/>
+      <arg name="linear_accel_cov"         value="$(arg linear_accel_cov)"/>
+      <arg name="initial_reset"            value="$(arg initial_reset)"/>
+      <arg name="reconnect_timeout"        value="$(arg reconnect_timeout)"/>
+      <arg name="wait_for_device_timeout"  value="$(arg wait_for_device_timeout)"/>
+      <arg name="unite_imu_method"         value="$(arg unite_imu_method)"/>
+      <arg name="topic_odom_in"            value="$(arg topic_odom_in)"/>
+      <arg name="calib_odom_file"          value="$(arg calib_odom_file)"/>
+      <arg name="publish_odom_tf"          value="$(arg publish_odom_tf)"/>
+      <arg name="stereo_module/exposure/1" value="$(arg stereo_module/exposure/1)"/>
+      <arg name="stereo_module/gain/1"     value="$(arg stereo_module/gain/1)"/>
+      <arg name="stereo_module/exposure/2" value="$(arg stereo_module/exposure/2)"/>
+      <arg name="stereo_module/gain/2"     value="$(arg stereo_module/gain/2)"/>
+
+      <arg name="allow_no_texture_points"  value="$(arg allow_no_texture_points)"/>
+      <arg name="ordered_pc"               value="$(arg ordered_pc)"/>
+      
+    </include>
+  </group>
+
+  <!--  Launch Transform Listener  -->
+  <node pkg="planner" name="transform_listener_service" type="transform_listener_service"/>
+
+
+
+</launch>

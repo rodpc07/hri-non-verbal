@@ -4,13 +4,10 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /MotionPlanning1
         - /MotionPlanning1/Scene Robot1
         - /MotionPlanning1/Planning Request1
-        - /MarkerArray1
-        - /PlanningScene1
-      Splitter Ratio: 0.5
-    Tree Height: 390
+      Splitter Ratio: 0.49899396300315857
+    Tree Height: 369
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -350,9 +347,7 @@ Visualization Manager:
       Marker Topic: /rviz_visual_tools
       Name: MarkerArray
       Namespaces:
-        Axis: true
-        Closest: true
-        Text: true
+        {}
       Queue Size: 100000
       Value: true
     - Alpha: 1
@@ -462,189 +457,49 @@ Visualization Manager:
       Show Visual Aids: false
       Update Topic: /interactive_marker/update
       Value: true
-    - Class: moveit_rviz_plugin/PlanningScene
-      Enabled: false
-      Move Group Namespace: ""
-      Name: PlanningScene
-      Planning Scene Topic: /published_planning_scene
-      Robot Description: robot_description
-      Scene Geometry:
-        Scene Alpha: 0.8999999761581421
-        Scene Color: 50; 230; 50
-        Scene Display Time: 0.009999999776482582
-        Show Scene Geometry: true
-        Voxel Coloring: Z-Axis
-        Voxel Rendering: Occupied Voxels
-      Scene Robot:
-        Attached Body Color: 150; 50; 150
-        Links:
-          All Links Enabled: true
-          Expand Joint Details: false
-          Expand Link Details: false
-          Expand Tree: false
-          Link Tree Style: Links in Alphabetic Order
-        Robot Alpha: 1
-        Show Robot Collision: false
-        Show Robot Visual: true
-      Value: false
-    - Attached Body Color: 150; 50; 150
-      Class: moveit_rviz_plugin/RobotState
-      Collision Enabled: false
-      Enabled: false
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-      Name: RobotState
-      Robot Alpha: 1
-      Robot Description: robot_description
-      Robot State Topic: display_robot_state
-      Show All Links: true
-      Show Highlights: true
-      Value: false
-      Visual Enabled: true
-    - Class: moveit_rviz_plugin/Trajectory
-      Color Enabled: false
-      Enabled: false
-      Interrupt Display: false
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-        gripper_l_base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_l_finger_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_l_finger_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_finger_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_finger_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        yumi_body:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_1_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_1_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_2_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_2_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_3_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_3_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_4_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_4_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_5_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_5_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-      Loop Animation: false
-      Name: Trajectory
-      Robot Alpha: 0.5
-      Robot Color: 150; 50; 150
-      Robot Description: robot_description
-      Show Robot Collision: false
-      Show Robot Visual: true
-      Show Trail: false
-      State Display Time: 3x
-      Trail Step Size: 1
-      Trajectory Topic: /display_planned_path
-      Use Sim Time: false
-      Value: false
-    - Class: rviz/MarkerArray
-      Enabled: false
-      Marker Topic: visualization_marker_array
-      Name: MarkerArray
-      Namespaces:
+    - Class: hri_rviz/Humans
+      Enabled: true
+      Image Topic: ""
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Humans
+      Normalize Range: true
+      Queue Size: 2
+      Show 2D Skeletons: true
+      Show body RoIs: true
+      Show face RoIs: true
+      Show facial landmarks: true
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: hri_rviz/TF (HRI)
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Alpha: 1
+      Marker Scale: 1
+      Name: TF (HRI)
+      Show Arrows: true
+      Show Axes: true
+      Show Faces: true
+      Show Gazes: true
+      Show Names: true
+      Show Skeletons: true
+      Tree:
         {}
-      Queue Size: 100
-      Value: false
+      Update Interval: 0
+      Value: true
+    - Alpha: 1
+      Class: hri_rviz/Skeletons 3D
+      Collision Enabled: false
+      Enabled: true
+      Name: Skeletons 3D
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -661,7 +516,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.8943269848823547
+      Distance: 1.8605821132659912
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -669,37 +524,37 @@ Visualization Manager:
         Value: false
       Field of View: 0.75
       Focal Point:
-        X: 1.5001845359802246
-        Y: -0.49549657106399536
-        Z: 0.028274688869714737
+        X: 0.15022927522659302
+        Y: -0.016830630600452423
+        Z: 0.3236057758331299
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4597972631454468
+      Pitch: 0.31979748606681824
       Target Frame: yumi_base_link
-      Yaw: 1.068198323249817
+      Yaw: 6.281384468078613
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1011
+  Height: 1371
   Help:
     collapsed: false
   Hide Left Dock: false
   Hide Right Dock: false
+  Humans:
+    collapsed: false
   MotionPlanning:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000399fc020000000afb000000100044006900730070006c006100790073010000003d000001c3000000c900fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000206000001880000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000394000000420000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff00000016000000160000025b0000039900000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc020000000bfb000000100044006900730070006c006100790073010000003d000001ae000000c900fffffffb0000000c00480075006d0061006e007301000001f10000016a0000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000003610000017d0000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006901000004e40000005a0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000003cc0000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
-    collapsed: false
-  Trajectory - Trajectory Slider:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1108
-  X: 1920
+  Width: 1477
+  X: 0
   Y: 0
