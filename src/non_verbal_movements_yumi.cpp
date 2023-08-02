@@ -198,7 +198,7 @@ public:
         arm_mgi_->execute(plan);
     }
 
-    void attention(std::string target_frame)
+    void waving(std::string target_frame)
     {
         arm_mgi_->setStartStateToCurrentState();
 
@@ -253,7 +253,11 @@ public:
         arm_mgi_->setJointValueTarget(joint_group_positions);
 
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
-        arm_mgi_->plan(arm_plan_1);
+        if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for first movement");
+            return;
+        }
 
         // Next are planned in advance 4 motions to simulate waving, later executed sequecially
 
@@ -262,34 +266,237 @@ public:
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_2;
-        arm_mgi_->plan(arm_plan_2);
+        if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for second movement");
+            return;
+        }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
         joint_group_positions.at(5) = 25 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_3;
-        arm_mgi_->plan(arm_plan_3);
+        if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for third movement");
+            return;
+        }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_3.trajectory_.joint_trajectory.points.back().positions);
         joint_group_positions.at(5) = -25 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_4;
-        arm_mgi_->plan(arm_plan_4);
+        if (!(arm_mgi_->plan(arm_plan_4) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for fourth movement");
+            return;
+        }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_4.trajectory_.joint_trajectory.points.back().positions);
         joint_group_positions.at(5) = 0 * (M_PI / 180);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(joint_group_positions);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan_5;
-        arm_mgi_->plan(arm_plan_5);
+        if (!(arm_mgi_->plan(arm_plan_5) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for fifth movement");
+            return;
+        }
 
+        arm_mgi_->setStartStateToCurrentState();
         arm_mgi_->execute(arm_plan_1);
         arm_mgi_->execute(arm_plan_2);
         arm_mgi_->execute(arm_plan_3);
         arm_mgi_->execute(arm_plan_4);
         arm_mgi_->execute(arm_plan_5);
+    }
+
+    void comeClose(std::string target_frame)
+    {
+        arm_mgi_->setStartStateToCurrentState();
+
+        geometry_msgs::TransformStamped targetTransform;
+        geometry_msgs::TransformStamped linkTransform;
+
+        planner::TransformListener transformListenerMsg;
+
+        // Get transform from human position in reference to base_link
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = target_frame;
+        transform_listener.call(transformListenerMsg);
+        targetTransform = transformListenerMsg.response.transformStamped;
+
+        // Get transform from shoulder position in reference to base_link
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
+
+        // This joint values set the pose of the arm in a V shape (depends on robot morphology)
+
+        std::vector<double> joint_group_positions;
+        if (!arm_mgi_->getName().compare("right_arm"))
+        {
+            joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
+        }
+        else
+        {
+            joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
+        }
+
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+        arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
+
+        const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
+
+        // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
+
+        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
+        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+
+        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
+        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
+
+        double target_angle = atan2(yTarget, xTarget);
+        double ee_angle = atan2(yEE, xEE);
+
+        double angle = ee_angle - target_angle;
+
+        joint_group_positions.at(2) = angle;
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
+        if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for first movement");
+            return;
+        }
+
+        // Next are planned in advance 4 motions to simulate waving, later executed sequecially
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_1.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = 45 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_2;
+        if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for second movement");
+            return;
+        }
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = 0 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_3;
+        if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for third movement");
+            return;
+        }
+
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->execute(arm_plan_1);
+        arm_mgi_->execute(arm_plan_2);
+        arm_mgi_->execute(arm_plan_3);
+        arm_mgi_->execute(arm_plan_2);
+        arm_mgi_->execute(arm_plan_3);
+    }
+
+    void goAway(std::string target_frame)
+    {
+        arm_mgi_->setStartStateToCurrentState();
+
+        geometry_msgs::TransformStamped targetTransform;
+        geometry_msgs::TransformStamped linkTransform;
+
+        planner::TransformListener transformListenerMsg;
+
+        // Get transform from human position in reference to base_link
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = target_frame;
+        transform_listener.call(transformListenerMsg);
+        targetTransform = transformListenerMsg.response.transformStamped;
+
+        // Get transform from shoulder position in reference to base_link
+        transformListenerMsg.request.target_frame = "yumi_base_link";
+        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
+        transform_listener.call(transformListenerMsg);
+        linkTransform = transformListenerMsg.response.transformStamped;
+
+        // This joint values set the pose of the arm in a V shape (depends on robot morphology)
+
+        std::vector<double> joint_group_positions;
+        if (!arm_mgi_->getName().compare("right_arm"))
+        {
+            joint_group_positions = {125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
+        }
+        else
+        {
+            joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
+        }
+
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+        arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
+
+        const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
+
+        // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
+
+        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
+        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+
+        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
+        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
+
+        double target_angle = atan2(yTarget, xTarget);
+        double ee_angle = atan2(yEE, xEE);
+
+        double angle = ee_angle - target_angle;
+
+        joint_group_positions.at(2) = angle;
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_1;
+        if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for first movement");
+            return;
+        }
+
+        // Next are planned in advance 4 motions to simulate waving, later executed sequecially
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_1.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = -45 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_2;
+        if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for second movement");
+            return;
+        }
+
+        arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
+        joint_group_positions.at(5) = 0 * (M_PI / 180);
+        arm_mgi_->setStartState(arm_state);
+        arm_mgi_->setJointValueTarget(joint_group_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan_3;
+        if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for third movement");
+            return;
+        }
+
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->execute(arm_plan_1);
+        arm_mgi_->execute(arm_plan_2);
+        arm_mgi_->execute(arm_plan_3);
+        arm_mgi_->execute(arm_plan_2);
+        arm_mgi_->execute(arm_plan_3);
     }
 
     // bool mode (true = screw, false = unscrew)
@@ -303,30 +510,51 @@ public:
         double maxBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).max_position_;
         double minBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).min_position_;
 
-        Eigen::Isometry3d unscrew_inital_eigen;
-        visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
-        unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
-        geometry_msgs::Pose unscrew_inital_pose = visual_tools_->convertPose(unscrew_inital_eigen);
-
         // Set Initial Position to same as argument or offset
-        geometry_msgs::Pose pose = mode ? unscrew_inital_pose : input_pose;
+        geometry_msgs::Pose initial_pose;
+        if (mode)
+        {
+            Eigen::Isometry3d unscrew_inital_eigen;
+            visual_tools_->convertPoseSafe(input_pose, unscrew_inital_eigen);
+            unscrew_inital_eigen.translate(Eigen::Vector3d(0, 0, -distance));
+
+            initial_pose = visual_tools_->convertPose(unscrew_inital_eigen);
+        }
+        else
+        {
+            initial_pose = input_pose;
+        }
+
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        if (!computeLookPose(arm_state, initial_pose, input_pose, 20, 0.5, 0.5))
+        {
+            return;
+        }
 
         std::vector<double> joint_group_positions;
-        moveit::core::RobotState start_state(*arm_mgi_->getCurrentState());
-        start_state.copyJointGroupPositions(arm_jmg_, joint_group_positions);
+        arm_state.copyJointGroupPositions(arm_jmg_, joint_group_positions);
 
         // Set gripper joint to limit to allow a full range of rotation
 
         joint_group_positions.back() = mode ? minBound : maxBound;
         arm_mgi_->setJointValueTarget(joint_group_positions);
 
-        moveit::planning_interface::MoveGroupInterface::Plan plan_Set_Initial_Position;
+        moveit::planning_interface::MoveGroupInterface::Plan planSetInitialPosition;
 
-        bool success = (arm_mgi_->plan(plan_Set_Initial_Position) == moveit::core::MoveItErrorCode::SUCCESS);
-        arm_mgi_->execute(plan_Set_Initial_Position);
+        if (!(arm_mgi_->plan(planSetInitialPosition) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for initial position");
+            return;
+        }
 
         // Perform action of EndEffector
-        geometry_msgs::Pose start_end_effector_pose = arm_mgi_->getCurrentPose().pose;
+
+        arm_state.setJointGroupPositions(arm_jmg_, planSetInitialPosition.trajectory_.joint_trajectory.points.back().positions);
+        arm_mgi_->setStartState(arm_state);
+
+        // Perform action of EndEffector
+        geometry_msgs::Pose start_end_effector_pose = visual_tools_->convertPose(arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().back()));
         Eigen::Isometry3d goal_end_effector_eigen;
 
         double turn_angle = mode ? M_PI_2 : -M_PI_2;
@@ -338,6 +566,7 @@ public:
 
         do
         {
+
             geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
             std::vector<geometry_msgs::Pose> waypoints;
 
@@ -353,6 +582,7 @@ public:
                 tf2::convert(goal_end_effector_pose.orientation, q_orig);
                 q_rot.setRPY(0, 0, turn_angle);
                 q_new = q_orig * q_rot;
+                q_new.normalize();
                 geometry_msgs::Quaternion rotated_quat;
                 tf2::convert(q_new, rotated_quat);
                 goal_end_effector_pose.orientation = rotated_quat;
@@ -380,6 +610,9 @@ public:
                 ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
             }
         } while (fraction < 0.8);
+
+        arm_mgi_->setStartStateToCurrentState();
+        arm_mgi_->execute(planSetInitialPosition);
         arm_mgi_->execute(trajectory);
         visual_tools_->deleteAllMarkers();
     }
@@ -458,7 +691,11 @@ public:
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
         arm_mgi_->setJointValueTarget(lookPose_joint_positions);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
-        arm_mgi_->plan(plan);
+        if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return;
+        }
         arm_mgi_->execute(plan);
     }
 
@@ -549,7 +786,11 @@ public:
 
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
-        arm_mgi_->plan(plan);
+        if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return;
+        }
         arm_mgi_->execute(plan);
     }
 
@@ -625,7 +866,11 @@ public:
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
         arm_mgi_->setJointValueTarget(lookPose_joint_positions);
         moveit::planning_interface::MoveGroupInterface::Plan plan;
-        arm_mgi_->plan(plan);
+        if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return;
+        }
         arm_mgi_->execute(plan);
     }
 
@@ -756,7 +1001,11 @@ public:
 
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan first_movement;
-        arm_mgi_->plan(first_movement);
+        if (!(arm_mgi_->plan(first_movement) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return;
+        }
 
         // Set Rotated Position as JointValueTarget and Plan
         lookPose_joint_values = first_movement.trajectory_.joint_trajectory.points.back().positions;
@@ -783,19 +1032,22 @@ public:
 
         arm_mgi_->setJointValueTarget(rotated_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan first_rotation;
-        arm_mgi_->plan(first_rotation);
+        if (!(arm_mgi_->plan(first_rotation) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for first rotation");
+            return;
+        }
 
         // Set Pre-Rotation Position as JointValueTarget and Plan
         arm_state.setJointGroupPositions(arm_jmg_, rotated_joint_values);
         arm_mgi_->setStartState(arm_state);
         arm_mgi_->setJointValueTarget(lookPose_joint_values);
         moveit::planning_interface::MoveGroupInterface::Plan second_rotation;
-        arm_mgi_->plan(second_rotation);
-
-        for (double i : lookPose_joint_values)
-            cout << i << endl;
-        for (double i : rotated_joint_values)
-            cout << i << endl;
+        if (!(arm_mgi_->plan(second_rotation) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for second rotation");
+            return;
+        }
 
         arm_mgi_->execute(first_movement);
         arm_mgi_->execute(first_rotation);
@@ -1257,7 +1509,7 @@ int main(int argc, char **argv)
     do
     {
         cout << "MENU:\n"
-             << "1. GO TO TARGET\n"
+             << "1. WAVE\n"
              << "2. EXECUTE SCREW UNSCREW\n"
              << "3. CHANGE MODE SCREW UNSCREW\n"
              << "4. POINT TO OBJECT\n"
@@ -1265,6 +1517,8 @@ int main(int argc, char **argv)
              << "6. POINT TO HUMAN\n"
              << "7. ROTATE\n"
              << "8. SIGNAL PICK\n"
+             << "9. COME CLOSE\n"
+             << "10. GO AWAY\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -1272,13 +1526,14 @@ int main(int argc, char **argv)
         switch (choice)
         {
         case 1:
-            cout << "You chose to GO TO TARGET.\n";
-            right_arm_hri.attention("my_marker");
-            left_arm_hri.attention("my_marker");
+            cout << "You chose to WAVE.\n";
+            right_arm_hri.waving("my_marker");
+            left_arm_hri.waving("my_marker");
 
             break;
         case 2:
             right_arm_hri.screw_unscrew(mode, right_arm_mgi->getCurrentPose().pose);
+            visual_tools->prompt("");
             left_arm_hri.screw_unscrew(mode, left_arm_mgi->getCurrentPose().pose);
             break;
         case 3:
@@ -1330,6 +1585,14 @@ int main(int argc, char **argv)
         case 8:
             right_arm_hri.signalPick();
             left_arm_hri.signalPick();
+            break;
+        case 9:
+            right_arm_hri.comeClose("my_marker");
+            left_arm_hri.comeClose("my_marker");
+            break;
+        case 10:
+            right_arm_hri.goAway("my_marker");
+            left_arm_hri.goAway("my_marker");
             break;
         case 0:
             cout << "Exiting the program...\n";
