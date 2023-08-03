@@ -198,12 +198,9 @@ public:
         arm_mgi_->execute(plan);
     }
 
-    void waving(std::string target_frame)
+    bool waving(std::string target_frame)
     {
-        arm_mgi_->setStartStateToCurrentState();
-
         geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
 
         planner::TransformListener transformListenerMsg;
 
@@ -213,11 +210,10 @@ public:
         transform_listener.call(transformListenerMsg);
         targetTransform = transformListenerMsg.response.transformStamped;
 
-        // Get transform from shoulder position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(1));
 
         // This joint values set the pose of the arm in a V shape (depends on robot morphology)
 
@@ -231,18 +227,17 @@ public:
             joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), -90 * (M_PI / 180), 0, 0};
         }
 
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
         arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
 
         const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
 
         // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double xTarget = targetTransform.transform.translation.x - linkTransform.translation().x();
+        double yTarget = targetTransform.transform.translation.y - linkTransform.translation().y();
 
-        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
-        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
+        double xEE = end_effector_state.translation().x() - linkTransform.translation().x();
+        double yEE = end_effector_state.translation().y() - linkTransform.translation().y();
 
         double target_angle = atan2(yTarget, xTarget);
         double ee_angle = atan2(yEE, xEE);
@@ -256,7 +251,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for first movement");
-            return;
+            return false;
         }
 
         // Next are planned in advance 4 motions to simulate waving, later executed sequecially
@@ -269,7 +264,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for second movement");
-            return;
+            return false;
         }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
@@ -280,7 +275,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for third movement");
-            return;
+            return false;
         }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_3.trajectory_.joint_trajectory.points.back().positions);
@@ -291,7 +286,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_4) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for fourth movement");
-            return;
+            return false;
         }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_4.trajectory_.joint_trajectory.points.back().positions);
@@ -302,7 +297,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_5) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for fifth movement");
-            return;
+            return false;
         }
 
         arm_mgi_->setStartStateToCurrentState();
@@ -311,16 +306,14 @@ public:
         arm_mgi_->execute(arm_plan_3);
         arm_mgi_->execute(arm_plan_4);
         arm_mgi_->execute(arm_plan_5);
+
+        return true;
     }
 
-    void comeClose(std::string target_frame)
+    bool comeClose(std::string target_frame)
     {
-        arm_mgi_->setStartStateToCurrentState();
-
-        geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
-
         planner::TransformListener transformListenerMsg;
+        geometry_msgs::TransformStamped targetTransform;
 
         // Get transform from human position in reference to base_link
         transformListenerMsg.request.target_frame = "yumi_base_link";
@@ -328,11 +321,10 @@ public:
         transform_listener.call(transformListenerMsg);
         targetTransform = transformListenerMsg.response.transformStamped;
 
-        // Get transform from shoulder position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(1));
 
         // This joint values set the pose of the arm in a V shape (depends on robot morphology)
 
@@ -346,18 +338,17 @@ public:
             joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
         }
 
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
         arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
 
         const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
 
         // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double xTarget = targetTransform.transform.translation.x - linkTransform.translation().x();
+        double yTarget = targetTransform.transform.translation.y - linkTransform.translation().y();
 
-        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
-        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
+        double xEE = end_effector_state.translation().x() - linkTransform.translation().x();
+        double yEE = end_effector_state.translation().y() - linkTransform.translation().y();
 
         double target_angle = atan2(yTarget, xTarget);
         double ee_angle = atan2(yEE, xEE);
@@ -371,7 +362,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for first movement");
-            return;
+            return false;
         }
 
         // Next are planned in advance 4 motions to simulate waving, later executed sequecially
@@ -384,7 +375,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for second movement");
-            return;
+            return false;
         }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
@@ -395,7 +386,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for third movement");
-            return;
+            return false;
         }
 
         arm_mgi_->setStartStateToCurrentState();
@@ -404,16 +395,14 @@ public:
         arm_mgi_->execute(arm_plan_3);
         arm_mgi_->execute(arm_plan_2);
         arm_mgi_->execute(arm_plan_3);
+
+        return true;
     }
 
-    void goAway(std::string target_frame)
+    bool goAway(std::string target_frame)
     {
-        arm_mgi_->setStartStateToCurrentState();
-
-        geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
-
         planner::TransformListener transformListenerMsg;
+        geometry_msgs::TransformStamped targetTransform;
 
         // Get transform from human position in reference to base_link
         transformListenerMsg.request.target_frame = "yumi_base_link";
@@ -421,11 +410,10 @@ public:
         transform_listener.call(transformListenerMsg);
         targetTransform = transformListenerMsg.response.transformStamped;
 
-        // Get transform from shoulder position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(1); //"yumi_link_2"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(1));
 
         // This joint values set the pose of the arm in a V shape (depends on robot morphology)
 
@@ -439,18 +427,17 @@ public:
             joint_group_positions = {-125 * (M_PI / 180), -115 * (M_PI / 180), 0, 60 * (M_PI / 180), 0, 0, -90 * (M_PI / 180)};
         }
 
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
         arm_state.setJointGroupPositions(arm_jmg_, joint_group_positions);
 
         const Eigen::Isometry3d &end_effector_state = arm_state.getGlobalLinkTransform(gripper_mgi_->getLinkNames().at(0));
 
         // Next is done the calculations to obtain the angle for yumi_joint_2 needed to set the arm aligned with the human
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
+        double xTarget = targetTransform.transform.translation.x - linkTransform.translation().x();
+        double yTarget = targetTransform.transform.translation.y - linkTransform.translation().y();
 
-        double xEE = end_effector_state.translation().x() - linkTransform.transform.translation.x;
-        double yEE = end_effector_state.translation().y() - linkTransform.transform.translation.y;
+        double xEE = end_effector_state.translation().x() - linkTransform.translation().x();
+        double yEE = end_effector_state.translation().y() - linkTransform.translation().y();
 
         double target_angle = atan2(yTarget, xTarget);
         double ee_angle = atan2(yEE, xEE);
@@ -464,7 +451,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_1) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for first movement");
-            return;
+            return false;
         }
 
         // Next are planned in advance 4 motions to simulate waving, later executed sequecially
@@ -477,7 +464,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_2) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for second movement");
-            return;
+            return false;
         }
 
         arm_state.setJointGroupPositions(arm_jmg_, arm_plan_2.trajectory_.joint_trajectory.points.back().positions);
@@ -488,7 +475,7 @@ public:
         if (!(arm_mgi_->plan(arm_plan_3) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for third movement");
-            return;
+            return false;
         }
 
         arm_mgi_->setStartStateToCurrentState();
@@ -497,6 +484,8 @@ public:
         arm_mgi_->execute(arm_plan_3);
         arm_mgi_->execute(arm_plan_2);
         arm_mgi_->execute(arm_plan_3);
+
+        return true;
     }
 
     // bool mode (true = screw, false = unscrew)
@@ -617,9 +606,8 @@ public:
         visual_tools_->deleteAllMarkers();
     }
 
-    void pointToObject(std::string object_id)
+    bool pointToObject(std::string object_id)
     {
-
         visual_tools_->deleteAllMarkers();
 
         // Obtain object from scene
@@ -636,18 +624,14 @@ public:
 
         // Create a vector from shoulder to object to calculate pose
 
-        geometry_msgs::TransformStamped linkTransform;
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
 
-        planner::TransformListener transformListenerMsg;
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
-
-        double xTarget = object_pose.position.x - linkTransform.transform.translation.x;
-        double yTarget = object_pose.position.y - linkTransform.transform.translation.y;
-        double zTarget = object_pose.position.z - linkTransform.transform.translation.z;
+        double xTarget = object_pose.position.x - linkTransform.translation().x();
+        double yTarget = object_pose.position.y - linkTransform.translation().y();
+        double zTarget = object_pose.position.z - linkTransform.translation().z();
 
         double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
 
@@ -671,20 +655,17 @@ public:
         tf2::convert(qresult, q_msg);
 
         geometry_msgs::Pose lookPose;
-        lookPose.position.x = linkTransform.transform.translation.x + xTarget;
-        lookPose.position.y = linkTransform.transform.translation.y + yTarget;
-        lookPose.position.z = linkTransform.transform.translation.z + zTarget;
+        lookPose.position.x = linkTransform.translation().x() + xTarget;
+        lookPose.position.y = linkTransform.translation().y() + yTarget;
+        lookPose.position.z = linkTransform.translation().z() + zTarget;
         lookPose.orientation = q_msg;
 
         visual_tools_->publishAxis(lookPose);
         visual_tools_->trigger();
 
-        arm_mgi_->setStartStateToCurrentState();
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
-
         if (!computeLookPose(arm_state, lookPose, object_pose, 10, 2.0, 2.0))
         {
-            return;
+            return false;
         }
 
         std::vector<double> lookPose_joint_positions;
@@ -694,12 +675,13 @@ public:
         if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for pointing movement");
-            return;
+            return false;
         }
         arm_mgi_->execute(plan);
+        return true;
     }
 
-    void pointToObjectSide(string object_id, Eigen::Vector3d sideInfo)
+    bool pointToObjectSide(string object_id, Eigen::Vector3d sideInfo)
     {
 
         visual_tools_->deleteAllMarkers();
@@ -711,14 +693,14 @@ public:
         if (objects.count(object_id) == 0)
         {
             ROS_ERROR("Object does not exist.");
-            return;
+            return false;
         }
         if (!(sideInfo.isApprox(Eigen::Vector3d(1, 0, 0), tolerance) || sideInfo.isApprox(Eigen::Vector3d(-1, 0, 0), tolerance) ||
               sideInfo.isApprox(Eigen::Vector3d(0, 1, 0), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, -1, 0), tolerance) ||
               sideInfo.isApprox(Eigen::Vector3d(0, 0, 1), tolerance) || sideInfo.isApprox(Eigen::Vector3d(0, 0, -1), tolerance)))
         {
             ROS_ERROR("Side information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
-            return;
+            return false;
         }
 
         // Find position of object
@@ -731,14 +713,6 @@ public:
         visual_tools_->trigger();
 
         // Create a vector from shoulder to object to calculate pose
-
-        geometry_msgs::TransformStamped linkTransform;
-        planner::TransformListener transformListenerMsg;
-
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
 
         Eigen::Isometry3d objectEigen;
         visual_tools_->convertPoseSafe(object_pose, objectEigen);
@@ -777,7 +751,7 @@ public:
 
         if (!computeLookPose(arm_state, lookPose, object_pose, 10, 0.75, 0.75))
         {
-            return;
+            return false;
         }
 
         std::vector<double>
@@ -789,34 +763,34 @@ public:
         if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for pointing movement");
-            return;
+            return false;
         }
         arm_mgi_->execute(plan);
+
+        return true;
     }
 
-    void pointToHuman(string target_frame)
+    bool pointToHuman(string target_frame)
     {
         visual_tools_->deleteAllMarkers();
 
         // Calculate New Pose Looking at Human
-        geometry_msgs::TransformStamped targetTransform;
-        geometry_msgs::TransformStamped linkTransform;
-
         planner::TransformListener transformListenerMsg;
+        geometry_msgs::TransformStamped targetTransform;
 
         transformListenerMsg.request.target_frame = "yumi_base_link";
         transformListenerMsg.request.source_frame = target_frame;
         transform_listener.call(transformListenerMsg);
         targetTransform = transformListenerMsg.response.transformStamped;
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_7"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
 
-        double xTarget = targetTransform.transform.translation.x - linkTransform.transform.translation.x;
-        double yTarget = targetTransform.transform.translation.y - linkTransform.transform.translation.y;
-        double zTarget = targetTransform.transform.translation.z - linkTransform.transform.translation.z;
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
+
+        double xTarget = targetTransform.transform.translation.x - linkTransform.translation().x();
+        double yTarget = targetTransform.transform.translation.y - linkTransform.translation().y();
+        double zTarget = targetTransform.transform.translation.z - linkTransform.translation().z();
 
         double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
 
@@ -840,16 +814,13 @@ public:
         tf2::convert(qresult, q_msg);
 
         geometry_msgs::Pose lookPose;
-        lookPose.position.x = linkTransform.transform.translation.x + xTarget;
-        lookPose.position.y = linkTransform.transform.translation.y + yTarget;
-        lookPose.position.z = linkTransform.transform.translation.z + zTarget;
+        lookPose.position.x = linkTransform.translation().x() + xTarget;
+        lookPose.position.y = linkTransform.translation().y() + yTarget;
+        lookPose.position.z = linkTransform.translation().z() + zTarget;
         lookPose.orientation = q_msg;
 
         visual_tools_->publishAxis(lookPose);
         visual_tools_->trigger();
-
-        arm_mgi_->setStartStateToCurrentState();
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
 
         geometry_msgs::Pose humanPose;
         humanPose.position.x = targetTransform.transform.translation.x;
@@ -859,7 +830,7 @@ public:
 
         if (!computeLookPose(arm_state, lookPose, humanPose, 10, 2.0, 2.0))
         {
-            return;
+            return false;
         }
 
         std::vector<double> lookPose_joint_positions;
@@ -869,9 +840,10 @@ public:
         if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for pointing movement");
-            return;
+            return false;
         }
         arm_mgi_->execute(plan);
+        return true;
     }
 
     void signalPick()
@@ -893,9 +865,8 @@ public:
         }
     }
 
-    void signalRotate(string object_id, Eigen::Vector3d rotationInfo)
+    bool signalRotate(string object_id, Eigen::Vector3d rotationInfo)
     {
-
         visual_tools_->deleteAllMarkers();
 
         // Obtain object from scene
@@ -905,14 +876,14 @@ public:
         if (objects.count(object_id) == 0)
         {
             ROS_ERROR("Object does not exist.");
-            return;
+            return false;
         }
         if (!(rotationInfo.isApprox(Eigen::Vector3d(1, 0, 0), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(-1, 0, 0), tolerance) ||
               rotationInfo.isApprox(Eigen::Vector3d(0, 1, 0), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(0, -1, 0), tolerance) ||
               rotationInfo.isApprox(Eigen::Vector3d(0, 0, 1), tolerance) || rotationInfo.isApprox(Eigen::Vector3d(0, 0, -1), tolerance)))
         {
             ROS_ERROR("Rotation information is invalid! Must only provide information about one axis [x, y or z] and direction [1 or -1]");
-            return;
+            return false;
         }
 
         // Find position of object
@@ -924,16 +895,6 @@ public:
         visual_tools_->publishAxis(object_pose);
         visual_tools_->trigger();
 
-        // Create a vector from shoulder to object to calculate pose
-
-        geometry_msgs::TransformStamped linkTransform;
-        planner::TransformListener transformListenerMsg;
-
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = arm_mgi_->getLinkNames().at(0); //"yumi_link_1"
-        transform_listener.call(transformListenerMsg);
-        linkTransform = transformListenerMsg.response.transformStamped;
-
         Eigen::Isometry3d objectEigen;
         visual_tools_->convertPoseSafe(object_pose, objectEigen);
 
@@ -943,6 +904,11 @@ public:
             approach_options.push_back(objectEigen);
             approach_options[i].translate(rotationInfo * pow(-1, i) * (radius + 0.1));
         }
+
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
 
         Eigen::Isometry3d closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
 
@@ -975,16 +941,12 @@ public:
         visual_tools_->publishAxis(lookPose);
         visual_tools_->trigger();
 
-        arm_mgi_->setStartStateToCurrentState();
-        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
-
         if (!computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
         {
-            return;
+            return false;
         }
 
-        std::vector<double>
-            lookPose_joint_values;
+        std::vector<double> lookPose_joint_values;
         arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_values);
 
         double maxBound = arm_mgi_->getRobotModel()->getVariableBounds(arm_mgi_->getActiveJoints().at(6)).max_position_;
@@ -1004,7 +966,7 @@ public:
         if (!(arm_mgi_->plan(first_movement) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for pointing movement");
-            return;
+            return false;
         }
 
         // Set Rotated Position as JointValueTarget and Plan
@@ -1035,7 +997,7 @@ public:
         if (!(arm_mgi_->plan(first_rotation) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for first rotation");
-            return;
+            return false;
         }
 
         // Set Pre-Rotation Position as JointValueTarget and Plan
@@ -1046,12 +1008,14 @@ public:
         if (!(arm_mgi_->plan(second_rotation) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for second rotation");
-            return;
+            return false;
         }
 
         arm_mgi_->execute(first_movement);
         arm_mgi_->execute(first_rotation);
         arm_mgi_->execute(second_rotation);
+
+        return true;
     }
 
 private:
@@ -1103,19 +1067,15 @@ private:
         gripper_mgi_->plan(openPlan);
     }
 
-    Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const geometry_msgs::TransformStamped &linkTransform)
+    Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const Eigen::Isometry3d &linkTransform)
     {
         Eigen::Isometry3d closestApproachOption;
         double minDistance = std::numeric_limits<double>::max();
 
-        // Convert geometry_msgs::TransformStamped to Eigen::Isometry3d
-        Eigen::Isometry3d linkEigen = tf2::transformToEigen(linkTransform.transform);
-
         for (const auto &approachOption : approach_options)
         {
-
             // Calculate distance between linkEigen and the current approach option
-            double distance = (linkEigen.translation() - approachOption.translation()).norm();
+            double distance = (linkTransform.translation() - approachOption.translation()).norm();
 
             // Update the closestApproachOption if the current distance is smaller
             if (distance < minDistance)
@@ -1209,7 +1169,7 @@ private:
                 visual_tools_->publishAxis(pose);
                 visual_tools_->trigger();
 
-                ik_success = arm_state.setFromIK(arm_jmg_, pose, 0.7);
+                ik_success = arm_state.setFromIK(arm_jmg_, pose, 0.75);
 
                 collision_result.clear();
                 planning_scene_->getCurrentStateNonConst() = arm_state;
