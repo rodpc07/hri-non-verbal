@@ -52,15 +52,10 @@ public:
         : n_(n), arm_mgi_(arm_mgi), arm_jmg_(arm_jmg), gripper_mgi_(gripper_mgi), gripper_jmg_(gripper_jmg), planning_scene_interface_(planning_scene_interface), visual_tools_(visual_tools)
     {
         ROS_INFO("Initializing HRI_INTERFACE");
-        // Subscribe to Transform Service
-        transform_listener = n_.serviceClient<planner::TransformListener>("transform_listener_srv");
-        ikService = n_.serviceClient<moveit_msgs::GetPositionIK>("/compute_ik");
         planningSceneClient = n_.serviceClient<moveit_msgs::GetPlanningScene>("get_planning_scene");
 
         planning_scene_ = std::make_shared<planning_scene::PlanningScene>(arm_mgi_->getRobotModel());
         planning_scene_->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(), true);
-
-        // TODO - FIX planning lines with if's
 
         prePlanPick();
     }
@@ -202,13 +197,13 @@ public:
     {
         geometry_msgs::TransformStamped targetTransform;
 
-        planner::TransformListener transformListenerMsg;
-
         // Get transform from human position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = target_frame;
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+
+        if (!transformListener(target_frame, "yumi_base_link", targetTransform))
+        {
+            ROS_ERROR("Can't perform transform");
+            return false;
+        }
 
         arm_mgi_->setStartStateToCurrentState();
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
@@ -312,14 +307,15 @@ public:
 
     bool comeClose(std::string target_frame)
     {
-        planner::TransformListener transformListenerMsg;
         geometry_msgs::TransformStamped targetTransform;
 
         // Get transform from human position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = target_frame;
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+
+        if (!transformListener(target_frame, "yumi_base_link", targetTransform))
+        {
+            ROS_ERROR("Can't perform transform");
+            return false;
+        }
 
         arm_mgi_->setStartStateToCurrentState();
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
@@ -401,14 +397,15 @@ public:
 
     bool goAway(std::string target_frame)
     {
-        planner::TransformListener transformListenerMsg;
         geometry_msgs::TransformStamped targetTransform;
 
         // Get transform from human position in reference to base_link
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = target_frame;
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+
+        if (!transformListener(target_frame, "yumi_base_link", targetTransform))
+        {
+            ROS_ERROR("Can't perform transform");
+            return false;
+        }
 
         arm_mgi_->setStartStateToCurrentState();
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
@@ -775,13 +772,15 @@ public:
         visual_tools_->deleteAllMarkers();
 
         // Calculate New Pose Looking at Human
-        planner::TransformListener transformListenerMsg;
         geometry_msgs::TransformStamped targetTransform;
 
-        transformListenerMsg.request.target_frame = "yumi_base_link";
-        transformListenerMsg.request.source_frame = target_frame;
-        transform_listener.call(transformListenerMsg);
-        targetTransform = transformListenerMsg.response.transformStamped;
+        // Get transform from human position in reference to base_link
+
+        if (!transformListener(target_frame, "yumi_base_link", targetTransform))
+        {
+            ROS_ERROR("Can't perform transform");
+            return false;
+        }
 
         arm_mgi_->setStartStateToCurrentState();
         moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
@@ -1028,14 +1027,43 @@ private:
     std::shared_ptr<moveit_visual_tools::MoveItVisualTools> visual_tools_;
     std::shared_ptr<planning_scene::PlanningScene> planning_scene_;
 
-    ros::ServiceClient transform_listener;
-    ros::ServiceClient ikService;
     ros::ServiceClient planningSceneClient;
 
     moveit::planning_interface::MoveGroupInterface::Plan openPlan;
     moveit::planning_interface::MoveGroupInterface::Plan closePlan;
     std::vector<double> closedJointValues;
     std::vector<double> openedJointValues;
+
+    bool transformListener(std::string source_frame, std::string target_frame,
+                           geometry_msgs::TransformStamped &transform_stamped)
+    {
+        tf2_ros::Buffer tfBuffer;
+        tf2_ros::TransformListener tfListener(tfBuffer);
+        ros::Rate rate(50.0);
+
+        ros::Time startTime = ros::Time::now();
+
+        while (ros::Time::now() - startTime <= ros::Duration(5.0))
+        {
+            try
+            {
+                transform_stamped = tfBuffer.lookupTransform(target_frame, source_frame, ros::Time(0));
+
+                if (transform_stamped.header.stamp.isValid())
+                    return true;
+            }
+            catch (tf2::TransformException &ex)
+            {
+                ROS_WARN("%s", ex.what());
+                ros::Duration(1.0).sleep();
+                continue;
+            }
+
+            rate.sleep();
+        }
+
+        return false;
+    }
 
     void updatePlanningScene(std::shared_ptr<planning_scene::PlanningScene> planning_scene)
     {
