@@ -225,9 +225,6 @@
     </include>
   </group>
 
-  <!--  Launch Transform Listener  -->
-  <node pkg="planner" name="transform_listener_service" type="transform_listener_service"/>
-
 
 
 </launch>

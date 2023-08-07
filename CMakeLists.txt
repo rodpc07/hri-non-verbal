@@ -34,15 +34,9 @@ find_package(catkin REQUIRED
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED system filesystem date_time thread)
 
-add_service_files(
-  FILES
-  TransformListener.srv
-)
-
-generate_messages(
-  DEPENDENCIES actionlib_msgs std_msgs trajectory_msgs control_msgs  # Or other packages containing msgs
-)
-
+# generate_messages(
+#   DEPENDENCIES actionlib_msgs std_msgs trajectory_msgs control_msgs  # Or other packages containing msgs
+# )
 
 catkin_package(
   LIBRARIES
@@ -69,8 +63,8 @@ target_link_libraries(non_verbal_movements_yumi ${catkin_LIBRARIES} ${Boost_LIBR
 add_executable(interactive_marker src/interactive_marker.cpp)
 target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(transform_listener_service src/transform_listener_service.cpp)
-target_link_libraries(transform_listener_service ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(task src/task.cpp)
+target_link_libraries(task ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(pick_and_place src/pick_and_place.cpp)
 target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})

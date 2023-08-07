@@ -31,6 +31,7 @@
 #include <string>
 
 #include <memory>
+#include <functional>
 
 using namespace std;
 
@@ -483,7 +484,7 @@ public:
     }
 
     // bool mode (true = screw, false = unscrew)
-    void screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
+    bool screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
     {
 
         arm_mgi_->setStartStateToCurrentState();
@@ -512,7 +513,7 @@ public:
 
         if (!computeLookPose(arm_state, initial_pose, input_pose, 20, 0.5, 0.5))
         {
-            return;
+            return false;
         }
 
         std::vector<double> joint_group_positions;
@@ -528,7 +529,7 @@ public:
         if (!(arm_mgi_->plan(planSetInitialPosition) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for initial position");
-            return;
+            return false;
         }
 
         // Perform action of EndEffector
@@ -598,6 +599,75 @@ public:
         arm_mgi_->execute(planSetInitialPosition);
         arm_mgi_->execute(trajectory);
         visual_tools_->deleteAllMarkers();
+
+        return true;
+    }
+
+    bool pointToPoint(geometry_msgs::Point point)
+    {
+        visual_tools_->deleteAllMarkers();
+
+        // Create a vector from shoulder to object to calculate pose
+
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
+
+        double xTarget = point.x - linkTransform.translation().x();
+        double yTarget = point.y - linkTransform.translation().y();
+        double zTarget = point.z - linkTransform.translation().z();
+
+        double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
+
+        double targetDistance = distance - 0.20 >= 0.6 ? 0.6 : distance - 0.20;
+
+        double scalingFactor = (targetDistance) / distance;
+
+        xTarget *= scalingFactor;
+        yTarget *= scalingFactor;
+        zTarget *= scalingFactor;
+
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+        tf2::Quaternion qresult = q1 * q2;
+        qresult.normalize();
+
+        geometry_msgs::Quaternion q_msg;
+        tf2::convert(qresult, q_msg);
+
+        geometry_msgs::Pose lookPose;
+        lookPose.position.x = linkTransform.translation().x() + xTarget;
+        lookPose.position.y = linkTransform.translation().y() + yTarget;
+        lookPose.position.z = linkTransform.translation().z() + zTarget;
+        lookPose.orientation = q_msg;
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
+        geometry_msgs::Pose pointPose;
+        pointPose.position = point;
+        pointPose.orientation.w = 1.0;
+
+        if (!computeLookPose(arm_state, lookPose, pointPose, 10, 2.0, 2.0))
+        {
+            return false;
+        }
+
+        std::vector<double> lookPose_joint_positions;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
+        arm_mgi_->setJointValueTarget(lookPose_joint_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return false;
+        }
+        arm_mgi_->execute(plan);
+        return true;
     }
 
     bool pointToObject(std::string object_id)
@@ -853,7 +923,6 @@ public:
         planList.push_back(closePlan);
         planList.push_back(openPlan);
         planList.push_back(closePlan);
-        planList.push_back(openPlan);
 
         for (const auto &planValue : planList)
         {
@@ -1170,234 +1239,200 @@ private:
         return poses;
     }
 
-    bool computeLookPose(moveit::core::RobotState &arm_state, geometry_msgs::Pose lookPose, geometry_msgs::Pose focus_position, int numPoints, double theta, double phi)
+    bool isStateValid(moveit::core::RobotState *arm_state, const moveit::core::JointModelGroup *group, const double *joint_group_variable_values)
     {
         updatePlanningScene(planning_scene_);
 
-        bool ik_success = arm_state.setFromIK(arm_jmg_, lookPose, 1.0);
+        arm_state->setJointGroupPositions(group, joint_group_variable_values);
+        arm_state->update();
+
+        visual_tools_->publishRobotState(*arm_state, rviz_visual_tools::GREEN);
+
         collision_detection::CollisionRequest collision_request;
         collision_request.contacts = false;
         collision_request.distance = false;
         collision_request.cost = false;
         collision_detection::CollisionResult collision_result;
-        planning_scene_->getCurrentStateNonConst() = arm_state;
+        collision_result.clear();
+        planning_scene_->getCurrentStateNonConst() = *arm_state;
         planning_scene_->checkCollision(collision_request, collision_result);
 
-        ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
         ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
-        if (!(ik_success && !collision_result.collision))
+
+        return !collision_result.collision;
+    }
+
+    bool computeLookPose(moveit::core::RobotState &arm_state, geometry_msgs::Pose lookPose, geometry_msgs::Pose focus_position, int numPoints, double theta, double phi)
+    {
+        if (!arm_state.setFromIK(arm_jmg_, lookPose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
         {
             std::vector<geometry_msgs::Pose> pose_vector = computePointsOnSphere(numPoints, lookPose.position, focus_position.position, theta, phi);
+
             for (const auto &pose : pose_vector)
             {
 
                 visual_tools_->publishAxis(pose);
                 visual_tools_->trigger();
 
-                ik_success = arm_state.setFromIK(arm_jmg_, pose, 0.75);
-
-                collision_result.clear();
-                planning_scene_->getCurrentStateNonConst() = arm_state;
-                planning_scene_->checkCollision(collision_request, collision_result);
-
-                ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
-                ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
-
-                if (ik_success && !collision_result.collision)
-                    break;
+                if (arm_state.setFromIK(arm_jmg_, lookPose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
+                {
+                    return true;
+                }
             }
 
-            if (!(ik_success && !collision_result.collision))
-            {
-                ROS_ERROR("Pose cannot be achieved.");
-                return false;
-            }
+            ROS_ERROR("Pose cannot be achieved.");
+            return false;
         }
 
         return true;
     }
 };
 
-void pick(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
-{
-    // BEGIN_SUB_TUTORIAL pick1
-    // Create a vector of grasps to be attempted, currently only creating single grasp.
-    // This is essentially useful when using a grasp generator to generate and test multiple grasps.
-    std::vector<moveit_msgs::Grasp> grasps;
-    grasps.resize(1);
-
-    // Actual Grasping Pose
-    grasps[0].grasp_pose.header.frame_id = "yumi_base_link";
-    grasps[0].grasp_pose.pose.position.x = 0.383890;
-    grasps[0].grasp_pose.pose.position.y = -0.008552;
-    grasps[0].grasp_pose.pose.position.z = 0.491650;
-    grasps[0].grasp_pose.pose.orientation.x = 0.471129;
-    grasps[0].grasp_pose.pose.orientation.y = 0.538489;
-    grasps[0].grasp_pose.pose.orientation.z = 0.500098;
-    grasps[0].grasp_pose.pose.orientation.w = 0.487822;
-
-    // Pre Grasp (vector representing the direction of approach)
-    grasps[0].pre_grasp_approach.direction.header.frame_id = "yumi_base_link";
-    grasps[0].pre_grasp_approach.direction.vector.x = 1.0;
-    grasps[0].pre_grasp_approach.min_distance = 0.095;
-    grasps[0].pre_grasp_approach.desired_distance = 0.115;
-
-    // Post Grasp (vector representing the direction of retreat)
-    grasps[0].post_grasp_retreat.direction.header.frame_id = "yumi_base_link";
-    grasps[0].post_grasp_retreat.direction.vector.z = 1.0;
-    grasps[0].post_grasp_retreat.min_distance = 0.1;
-    grasps[0].post_grasp_retreat.desired_distance = 0.25;
-
-    // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getVariableNames())
-    {
-        grasps[0].pre_grasp_posture.joint_names.push_back(joint_name);
-    };
-
-    grasps[0].pre_grasp_posture.points.resize(1);
-    grasps[0].pre_grasp_posture.points[0].positions.resize(2);
-    grasps[0].pre_grasp_posture.points[0].positions[0] = 0.025;
-    grasps[0].pre_grasp_posture.points[0].positions[1] = 0.025;
-    grasps[0].pre_grasp_posture.points[0].time_from_start = ros::Duration(0.5);
-
-    // Close Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getVariableNames())
-    {
-        grasps[0].grasp_posture.joint_names.push_back(joint_name);
-    };
-
-    grasps[0].grasp_posture.points.resize(1);
-    grasps[0].grasp_posture.points[0].positions.resize(2);
-    grasps[0].grasp_posture.points[0].positions[0] = 0.00;
-    grasps[0].grasp_posture.points[0].positions[1] = 0.00;
-    grasps[0].grasp_posture.points[0].time_from_start = ros::Duration(0.5);
-
-    arm_mgi.setSupportSurfaceName("table1");
-    arm_mgi.pick("object", grasps);
-}
-
-void place(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
-{
-    std::vector<moveit_msgs::PlaceLocation> place_location;
-    place_location.resize(1);
-
-    // Actual Placing Pose (this is the object pose and not the gripper pose)
-    place_location[0].place_pose.header.frame_id = "yumi_base_link";
-    place_location[0].place_pose.pose.position.x = 0.02;
-    place_location[0].place_pose.pose.position.y = 0.46;
-    place_location[0].place_pose.pose.position.z = 0.5;
-    place_location[0].place_pose.pose.orientation.x = 0;
-    place_location[0].place_pose.pose.orientation.y = 0;
-    place_location[0].place_pose.pose.orientation.z = 0.720831;
-    place_location[0].place_pose.pose.orientation.w = 0.693111;
-
-    // Pre Place Pose (vector representing the direction of approach, simetric to the pick)
-    place_location[0].pre_place_approach.direction.header.frame_id = "yumi_base_link";
-    place_location[0].pre_place_approach.direction.vector.z = -1.0;
-    place_location[0].pre_place_approach.min_distance = 0.095;
-    place_location[0].pre_place_approach.desired_distance = 0.115;
-
-    // Pre Place Pose (vector representing the direction of retreat)
-    place_location[0].post_place_retreat.direction.header.frame_id = "yumi_base_link";
-    place_location[0].post_place_retreat.direction.vector.z = 1.0;
-    place_location[0].post_place_retreat.min_distance = 0.1;
-    place_location[0].post_place_retreat.desired_distance = 0.25;
-
-    // Open Gripper Pose
-    for (const std::string joint_name : gripper_mgi.getVariableNames())
-    {
-        place_location[0].post_place_posture.joint_names.push_back(joint_name);
-    };
-
-    place_location[0].post_place_posture.points.resize(1);
-    place_location[0].post_place_posture.points[0].positions.resize(2);
-    place_location[0].post_place_posture.points[0].positions[0] = 0.025;
-    place_location[0].post_place_posture.points[0].positions[1] = 0.025;
-    place_location[0].post_place_posture.points[0].time_from_start = ros::Duration(0.5);
-
-    arm_mgi.setSupportSurfaceName("table2");
-    arm_mgi.place("object", place_location);
-}
-
 void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
 {
-    // BEGIN_SUB_TUTORIAL table1
-    //
-    // Creating Environment
-    // ^^^^^^^^^^^^^^^^^^^^
-    // Create vector to hold 3 collision objects.
+
     std::vector<moveit_msgs::CollisionObject> collision_objects;
-    collision_objects.resize(3);
+    std::vector<moveit_msgs::ObjectColor> object_colors;
 
-    // Add the first table where the cube will originally be kept.
-    collision_objects[0].id = "table1";
-    collision_objects[0].header.frame_id = "world";
+    collision_objects.resize(4);
+    object_colors.resize(4);
 
-    /* Define the primitive and its dimensions. */
-    collision_objects[0].primitives.resize(1);
-    collision_objects[0].primitives[0].type = collision_objects[0].primitives[0].BOX;
-    collision_objects[0].primitives[0].dimensions.resize(3);
-    collision_objects[0].primitives[0].dimensions[0] = 0.2;
-    collision_objects[0].primitives[0].dimensions[1] = 0.4;
-    collision_objects[0].primitives[0].dimensions[2] = 0.4;
+    int i = 0;
 
-    /* Define the pose of the table. */
-    collision_objects[0].primitive_poses.resize(1);
-    collision_objects[0].primitive_poses[0].position.x = 0.5;
-    collision_objects[0].primitive_poses[0].position.y = 0;
-    collision_objects[0].primitive_poses[0].position.z = 0.2;
-    collision_objects[0].primitive_poses[0].orientation.w = 1.0;
-    // END_SUB_TUTORIAL
+    collision_objects[i].id = "board_A";
+    collision_objects[i].header.frame_id = "yumi_base_link";
 
-    collision_objects[0].operation = collision_objects[0].ADD;
+    collision_objects[i].primitives.resize(1);
+    collision_objects[i].primitives[0].type = collision_objects[0].primitives[0].BOX;
+    collision_objects[i].primitives[0].dimensions.resize(3);
+    // collision_objects[i].primitives[0].dimensions[0] = 0.05334;
+    // collision_objects[i].primitives[0].dimensions[1] = 0.06858;
+    // collision_objects[i].primitives[0].dimensions[2] = 0.0016;
+    collision_objects[i].primitives[0].dimensions[0] = 0.04;
+    collision_objects[i].primitives[0].dimensions[1] = 0.06;
+    collision_objects[i].primitives[0].dimensions[2] = 0.0016;
 
-    // BEGIN_SUB_TUTORIAL table2
-    // Add the second table where we will be placing the cube.
-    collision_objects[1].id = "table2";
-    collision_objects[1].header.frame_id = "world";
+    collision_objects[i].primitive_poses.resize(1);
+    collision_objects[i].primitive_poses[0].position.x = 0.36;
+    collision_objects[i].primitive_poses[0].position.y = 0.80;
+    collision_objects[i].primitive_poses[0].position.z = 0.015 + 0.0016 / 2;
+    collision_objects[i].primitive_poses[0].orientation.w = 1.0;
 
-    /* Define the primitive and its dimensions. */
-    collision_objects[1].primitives.resize(1);
-    collision_objects[1].primitives[0].type = collision_objects[1].primitives[0].BOX;
-    collision_objects[1].primitives[0].dimensions.resize(3);
-    collision_objects[1].primitives[0].dimensions[0] = 0.4;
-    collision_objects[1].primitives[0].dimensions[1] = 0.2;
-    collision_objects[1].primitives[0].dimensions[2] = 0.4;
+    collision_objects[i].operation = collision_objects[i].ADD;
 
-    /* Define the pose of the table. */
-    collision_objects[1].primitive_poses.resize(1);
-    collision_objects[1].primitive_poses[0].position.x = 0;
-    collision_objects[1].primitive_poses[0].position.y = 0.5;
-    collision_objects[1].primitive_poses[0].position.z = 0.2;
-    collision_objects[1].primitive_poses[0].orientation.w = 1.0;
-    // END_SUB_TUTORIAL
+    object_colors[i].id = collision_objects[i].id;
 
-    collision_objects[1].operation = collision_objects[1].ADD;
+    std_msgs::ColorRGBA boardA_color;
+    boardA_color.r = 1;
+    boardA_color.g = 0;
+    boardA_color.b = 0;
+    boardA_color.a = 1;
 
-    // BEGIN_SUB_TUTORIAL object
-    // Define the object that we will be manipulating
-    collision_objects[2].header.frame_id = "world";
-    collision_objects[2].id = "object";
+    object_colors[i].color = boardA_color;
 
-    /* Define the primitive and its dimensions. */
-    collision_objects[2].primitives.resize(1);
-    collision_objects[2].primitives[0].type = collision_objects[1].primitives[0].BOX;
-    collision_objects[2].primitives[0].dimensions.resize(3);
-    collision_objects[2].primitives[0].dimensions[0] = 0.02;
-    collision_objects[2].primitives[0].dimensions[1] = 0.02;
-    collision_objects[2].primitives[0].dimensions[2] = 0.2;
+    i++;
 
-    /* Define the pose of the object. */
-    collision_objects[2].primitive_poses.resize(1);
-    collision_objects[2].primitive_poses[0].position.x = 0.5;
-    collision_objects[2].primitive_poses[0].position.y = 0;
-    collision_objects[2].primitive_poses[0].position.z = 0.5;
-    collision_objects[2].primitive_poses[0].orientation.w = 1.0;
-    // END_SUB_TUTORIAL
+    collision_objects[i].id = "board_B";
+    collision_objects[i].header.frame_id = "yumi_base_link";
 
-    collision_objects[2].operation = collision_objects[2].ADD;
+    collision_objects[i].primitives.resize(1);
+    collision_objects[i].primitives[0].type = collision_objects[0].primitives[0].BOX;
+    collision_objects[i].primitives[0].dimensions.resize(3);
+    // collision_objects[i].primitives[0].dimensions[0] = 0.05334;
+    // collision_objects[i].primitives[0].dimensions[1] = 0.06858;
+    // collision_objects[i].primitives[0].dimensions[2] = 0.0016;
+    collision_objects[i].primitives[0].dimensions[0] = 0.04;
+    collision_objects[i].primitives[0].dimensions[1] = 0.06;
+    collision_objects[i].primitives[0].dimensions[2] = 0.0016;
 
-    planning_scene_interface.applyCollisionObjects(collision_objects);
+    collision_objects[i].primitive_poses.resize(1);
+    collision_objects[i].primitive_poses[0].position.x = 0.56;
+    collision_objects[i].primitive_poses[0].position.y = 0.80;
+    collision_objects[i].primitive_poses[0].position.z = 0.015 + 0.0016 / 2;
+    collision_objects[i].primitive_poses[0].orientation.w = 1.0;
+
+    collision_objects[i].operation = collision_objects[i].ADD;
+
+    object_colors[i].id = collision_objects[i].id;
+
+    std_msgs::ColorRGBA boardB_color;
+    boardB_color.r = 0;
+    boardB_color.g = 1;
+    boardB_color.b = 0;
+    boardB_color.a = 1;
+
+    object_colors[i].color = boardB_color;
+
+    i++;
+
+    collision_objects[i].id = "table";
+    collision_objects[i].header.frame_id = "yumi_base_link";
+
+    collision_objects[i].primitives.resize(1);
+    collision_objects[i].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[i].primitives[0].dimensions.resize(3);
+    collision_objects[i].primitives[0].dimensions[0] = 0.75;
+    collision_objects[i].primitives[0].dimensions[1] = 1.8;
+    collision_objects[i].primitives[0].dimensions[2] = 0.03;
+
+    collision_objects[i].primitive_poses.resize(1);
+    collision_objects[i].primitive_poses[0].position.x = 0.515;
+    collision_objects[i].primitive_poses[0].position.y = 0.0;
+    collision_objects[i].primitive_poses[0].position.z = 0.0;
+    collision_objects[i].primitive_poses[0].orientation.w = 1.0;
+
+    collision_objects[i].operation = collision_objects[i].ADD;
+
+    object_colors[i].id = collision_objects[i].id;
+
+    std_msgs::ColorRGBA table_color;
+    table_color.r = 1;
+    table_color.g = 1;
+    table_color.b = 1;
+    table_color.a = 1;
+
+    object_colors[i].color = table_color;
+
+    i++;
+
+    collision_objects[i].id = "test_station";
+    collision_objects[i].header.frame_id = "yumi_base_link";
+
+    collision_objects[i].primitives.resize(1);
+    collision_objects[i].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[i].primitives[0].dimensions.resize(3);
+    collision_objects[i].primitives[0].dimensions[0] = 0.02;
+    collision_objects[i].primitives[0].dimensions[1] = 0.04;
+    collision_objects[i].primitives[0].dimensions[2] = 0.03;
+
+    collision_objects[i].primitive_poses.resize(1);
+    collision_objects[i].primitive_poses[0].position.x = 0.38;
+    collision_objects[i].primitive_poses[0].position.y = 0.0;
+    collision_objects[i].primitive_poses[0].position.z = 0.03;
+    collision_objects[i].primitive_poses[0].orientation.w = 1.0;
+
+    collision_objects[i].operation = collision_objects[i].ADD;
+
+    object_colors[i].id = collision_objects[i].id;
+    object_colors[i].color = table_color;
+
+    planning_scene_interface.applyCollisionObjects(collision_objects, object_colors);
+}
+
+void moveObject(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface, std::string object_id, double x = 0, double y = 0, double z = 0)
+{
+
+    std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface.getObjects();
+
+    moveit_msgs::CollisionObject object = objects[object_id];
+
+    object.pose.position.x = x;
+    object.pose.position.y = y;
+    object.pose.position.z = z;
+
+    object.operation = object.ADD;
+
+    planning_scene_interface.applyCollisionObject(object);
 }
 
 void printPose(moveit::planning_interface::MoveGroupInterface &group)
@@ -1427,6 +1462,106 @@ void printPose(moveit_msgs::CollisionObject object)
     std::cout << "pose.orientation.w = " << pose.orientation.w << ";\n";
 }
 
+void pick1(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
+{
+    // Create a vector of grasps to be attempted, currently only creating single grasp.
+    // This is essentially useful when using a grasp generator to generate and test multiple grasps.
+    std::vector<moveit_msgs::Grasp> grasps;
+    grasps.resize(1);
+
+    // Actual Grasping Pose
+    grasps[0].grasp_pose.header.frame_id = "yumi_base_link";
+    grasps[0].grasp_pose.pose.position.x = 0.389111;
+    grasps[0].grasp_pose.pose.position.y = 0.210832;
+    grasps[0].grasp_pose.pose.position.z = 0.15828;
+    grasps[0].grasp_pose.pose.orientation.x = 0.999895;
+    grasps[0].grasp_pose.pose.orientation.y = 0.0143787;
+    grasps[0].grasp_pose.pose.orientation.z = 1.23117e-05;
+    grasps[0].grasp_pose.pose.orientation.w = 0.00175959;
+
+    // Pre Grasp (vector representing the direction of approach)
+    grasps[0].pre_grasp_approach.direction.header.frame_id = "yumi_base_link";
+    grasps[0].pre_grasp_approach.direction.vector.z = -1.0;
+    grasps[0].pre_grasp_approach.min_distance = 0.01;
+    grasps[0].pre_grasp_approach.desired_distance = 0.05;
+
+    // Post Grasp (vector representing the direction of retreat)
+    grasps[0].post_grasp_retreat.direction.header.frame_id = "yumi_base_link";
+    grasps[0].post_grasp_retreat.direction.vector.z = 1.0;
+    grasps[0].post_grasp_retreat.min_distance = 0.01;
+    grasps[0].post_grasp_retreat.desired_distance = 0.05;
+
+    // Open Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
+    {
+        grasps[0].pre_grasp_posture.joint_names.push_back(joint_name);
+    };
+
+    grasps[0].pre_grasp_posture.points.resize(1);
+    grasps[0].pre_grasp_posture.points[0].positions.resize(2);
+    grasps[0].pre_grasp_posture.points[0].positions[0] = 0.025;
+    grasps[0].pre_grasp_posture.points[0].positions[1] = 0.025;
+    grasps[0].pre_grasp_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    // Close Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
+    {
+        grasps[0].grasp_posture.joint_names.push_back(joint_name);
+    };
+
+    grasps[0].grasp_posture.points.resize(1);
+    grasps[0].grasp_posture.points[0].positions.resize(2);
+    grasps[0].grasp_posture.points[0].positions[0] = 0.02;
+    grasps[0].grasp_posture.points[0].positions[1] = 0.02;
+    grasps[0].grasp_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    arm_mgi.setSupportSurfaceName("table");
+    arm_mgi.pick("board_A", grasps);
+}
+
+void place1(moveit::planning_interface::MoveGroupInterface &arm_mgi, moveit::planning_interface::MoveGroupInterface &gripper_mgi)
+{
+    std::vector<moveit_msgs::PlaceLocation> place_location;
+    place_location.resize(1);
+
+    // Actual Placing Pose (this is the object pose and not the gripper pose)
+    place_location[0].place_pose.header.frame_id = "yumi_base_link";
+    place_location[0].place_pose.pose.position.x = 0.38;
+    place_location[0].place_pose.pose.position.y = 0;
+    place_location[0].place_pose.pose.position.z = 0.045 + 0.0016 / 2;
+    place_location[0].place_pose.pose.orientation.x = 0;
+    place_location[0].place_pose.pose.orientation.y = 0;
+    place_location[0].place_pose.pose.orientation.z = 0;
+    place_location[0].place_pose.pose.orientation.w = 1;
+
+    // Pre Place Pose (vector representing the direction of approach, simetric to the pick)
+    place_location[0].pre_place_approach.direction.header.frame_id = "yumi_base_link";
+    place_location[0].pre_place_approach.direction.vector.z = -1.0;
+    place_location[0].pre_place_approach.min_distance = 0.01;
+    place_location[0].pre_place_approach.desired_distance = 0.05;
+
+    // Pre Place Pose (vector representing the direction of retreat)
+    place_location[0].post_place_retreat.direction.header.frame_id = "yumi_base_link";
+    place_location[0].post_place_retreat.direction.vector.z = 1.0;
+    place_location[0].post_place_retreat.min_distance = 0.01;
+    place_location[0].post_place_retreat.desired_distance = 0.05;
+
+    // Open Gripper Pose
+    for (const std::string joint_name : gripper_mgi.getVariableNames())
+    {
+        place_location[0].post_place_posture.joint_names.push_back(joint_name);
+    };
+
+    place_location[0].post_place_posture.points.resize(1);
+    place_location[0].post_place_posture.points[0].positions.resize(2);
+    place_location[0].post_place_posture.points[0].positions[0] = 0.025;
+    place_location[0].post_place_posture.points[0].positions[1] = 0.025;
+    place_location[0].post_place_posture.points[0].time_from_start = ros::Duration(0.5);
+
+    arm_mgi.setSupportSurfaceName("test_station");
+    arm_mgi.place("board_A", place_location);
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "hri_interface");
@@ -1453,57 +1588,61 @@ int main(int argc, char **argv)
 
     right_arm_mgi->setMaxVelocityScalingFactor(1.0);
     right_arm_mgi->setMaxAccelerationScalingFactor(1.0);
-    right_arm_mgi->setPlanningTime(5);
+    right_arm_mgi->setPlanningTime(5.0);
     right_arm_mgi->allowReplanning(true);
     right_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     right_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
-    right_gripper_mgi->setPlanningTime(5);
+    right_gripper_mgi->setPlanningTime(5.0);
     right_gripper_mgi->allowReplanning(true);
 
     left_arm_mgi->setMaxVelocityScalingFactor(1.0);
     left_arm_mgi->setMaxAccelerationScalingFactor(1.0);
-    left_arm_mgi->setPlanningTime(5);
+    left_arm_mgi->setPlanningTime(5.0);
     left_arm_mgi->allowReplanning(true);
     left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
     left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
-    left_gripper_mgi->setPlanningTime(5);
+    left_gripper_mgi->setPlanningTime(5.0);
     left_gripper_mgi->allowReplanning(true);
+
+    cout << left_arm_mgi->getPlanningTime() << endl;
 
     namespace rvt = rviz_visual_tools;
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
     visual_tools->loadRemoteControl();
-    visual_tools->setGlobalScale(0.4);
+    // visual_tools->setGlobalScale(0.4);
 
     // RViz provides many types of markers, in this demo we will use text, cylinders, and spheres
     Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
     text_pose.translation().z() = 0.75;
-    visual_tools->publishText(text_pose, "NON VERBAL MOVEMENT TESTING", rvt::WHITE, rvt::XXLARGE);
+    visual_tools->publishText(text_pose, "Task 1", rvt::WHITE, rvt::XXLARGE);
     visual_tools->trigger();
 
-    // addCollisionObjects(*planning_scene_interface);
+    addCollisionObjects(*planning_scene_interface);
 
     HRI_Interface right_arm_hri(node_handle, right_arm_mgi, right_arm_jmg, right_gripper_mgi, right_gripper_jmg, planning_scene_interface, visual_tools);
     HRI_Interface left_arm_hri(node_handle, left_arm_mgi, left_arm_jmg, left_gripper_mgi, left_gripper_jmg, planning_scene_interface, visual_tools);
 
+    std::map<std::string, moveit_msgs::CollisionObject> objects;
+
+    // Find position of object
+    moveit_msgs::CollisionObject object;
+
+    std::string human = "my_marker";
+
+    geometry_msgs::Point point;
+    point.x = 0.39;
+    point.y = 0.21;
+    point.z = 0.015 + 0.0016 / 2;
+
     int choice;
-    bool mode = true;
     string input;
-    string str1, str2;
-    Eigen::Vector3d rotationInfo;
     do
     {
         cout << "MENU:\n"
-             << "1. WAVE\n"
-             << "2. EXECUTE SCREW UNSCREW\n"
-             << "3. CHANGE MODE SCREW UNSCREW\n"
-             << "4. POINT TO OBJECT\n"
-             << "5. POINT TO OBJECT SIDE\n"
-             << "6. POINT TO HUMAN\n"
-             << "7. ROTATE\n"
-             << "8. SIGNAL PICK\n"
-             << "9. COME CLOSE\n"
-             << "10. GO AWAY\n"
+             << "1. PRINT POSE\n"
+             << "2. PRINT OBJECT POSE\n"
+             << "3. EXECUTE TASK\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -1511,73 +1650,44 @@ int main(int argc, char **argv)
         switch (choice)
         {
         case 1:
-            cout << "You chose to WAVE.\n";
-            right_arm_hri.waving("my_marker");
-            left_arm_hri.waving("my_marker");
-
+            cout << "PRINTING POSE.\n";
+            printPose(*right_arm_mgi);
+            printPose(*left_arm_mgi);
             break;
         case 2:
-            right_arm_hri.screw_unscrew(mode, right_arm_mgi->getCurrentPose().pose);
-            visual_tools->prompt("");
-            left_arm_hri.screw_unscrew(mode, left_arm_mgi->getCurrentPose().pose);
+            cout << "Object ID.\n";
+            cin >> input;
+            objects = planning_scene_interface->getObjects();
+            object = objects[input];
+            printPose(object);
             break;
         case 3:
-            cout << "Enter 0 (unscrew) or 1 (screw): ";
-            cin >> input;
-            if (stoi(input) == 0)
-            {
-                mode = false;
-            }
-            else if (stoi(input) == 1)
-            {
-                mode = true;
-            }
-            else
-            {
-                cout << "Invalid input. Mode remains unchanged.\n";
-            }
-            break;
-        case 4:
-            cout << "Enter \"object id\" to point to:";
-            cin >> input;
-            right_arm_hri.pointToObject(input);
-            left_arm_hri.pointToObject(input);
-            break;
-        case 5:
-            cout << "Enter \"object id\" to point to:";
-            cin >> input;
-            right_arm_hri.pointToObjectSide(input, Eigen::Vector3d(1, 0, 0));
-            left_arm_hri.pointToObjectSide(input, Eigen::Vector3d(1, 0, 0));
-            break;
-        case 6:
-            right_arm_hri.pointToHuman("my_marker");
-            left_arm_hri.pointToHuman("my_marker");
-            break;
-        case 7:
-            cout << "X 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(1, 0, 0));
-            cout << "X -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(-1, 0, 0));
-            cout << "Y 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 1, 0));
-            cout << "Y -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, -1, 0));
-            cout << "Z 1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, 1));
-            cout << "Z -1\n";
-            right_arm_hri.signalRotate("Box_1", Eigen::Vector3d(0, 0, -1));
-            break;
-        case 8:
-            right_arm_hri.signalPick();
+            cout << "EXECUTING TASK.\n";
+            left_arm_hri.pointToHuman(human);
+            ros::WallDuration(1).sleep();
+
+            left_arm_hri.pointToObject("board_A");
             left_arm_hri.signalPick();
-            break;
-        case 9:
-            right_arm_hri.comeClose("my_marker");
-            left_arm_hri.comeClose("my_marker");
-            break;
-        case 10:
-            right_arm_hri.goAway("my_marker");
-            left_arm_hri.goAway("my_marker");
+
+            left_arm_hri.pointToPoint(point);
+
+            left_gripper_mgi->setNamedTarget("open");
+            left_gripper_mgi->move();
+
+            left_arm_mgi->setNamedTarget("side");
+            left_arm_mgi->move();
+
+            visual_tools->prompt("Put Board in required position");
+
+            moveObject(*planning_scene_interface, "board_A", 0.39, 0.21, 0.015 + 0.0016 / 2);
+            ros::WallDuration(1).sleep();
+
+            pick1(*left_arm_mgi, *left_gripper_mgi);
+            place1(*left_arm_mgi, *left_gripper_mgi);
+
+            left_arm_mgi->setNamedTarget("side");
+            left_arm_mgi->move();
+
             break;
         case 0:
             cout << "Exiting the program...\n";

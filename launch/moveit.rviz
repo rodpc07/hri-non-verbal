@@ -6,8 +6,9 @@ Panels:
       Expanded:
         - /MotionPlanning1/Scene Robot1
         - /MotionPlanning1/Planning Request1
+        - /RobotState1
       Splitter Ratio: 0.49899396300315857
-    Tree Height: 369
+    Tree Height: 534
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -347,7 +348,9 @@ Visualization Manager:
       Marker Topic: /rviz_visual_tools
       Name: MarkerArray
       Namespaces:
-        {}
+        Axis: true
+        Sphere: true
+        Text: true
       Queue Size: 100000
       Value: true
     - Alpha: 1
@@ -377,6 +380,8 @@ Visualization Manager:
         gripper_r_finger_l:
           Value: true
         gripper_r_finger_r:
+          Value: true
+        my_marker:
           Value: true
         world:
           Value: true
@@ -421,6 +426,8 @@ Visualization Manager:
       Tree:
         world:
           yumi_base_link:
+            my_marker:
+              {}
             yumi_body:
               yumi_link_1_l:
                 yumi_link_2_l:
@@ -458,7 +465,7 @@ Visualization Manager:
       Update Topic: /interactive_marker/update
       Value: true
     - Class: hri_rviz/Humans
-      Enabled: true
+      Enabled: false
       Image Topic: ""
       Max Value: 1
       Median window: 5
@@ -472,7 +479,7 @@ Visualization Manager:
       Show facial landmarks: true
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
     - Class: hri_rviz/TF (HRI)
       Enabled: true
       Frame Timeout: 15
@@ -500,6 +507,133 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Attached Body Color: 150; 50; 150
+      Class: moveit_rviz_plugin/RobotState
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        gripper_l_base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        gripper_l_finger_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        gripper_l_finger_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        gripper_r_base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        gripper_r_finger_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        gripper_r_finger_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        yumi_body:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_1_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_1_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_2_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_2_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_3_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_3_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_4_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_4_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_5_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_5_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_6_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_6_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_7_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_7_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Name: RobotState
+      Robot Alpha: 1
+      Robot Description: robot_description
+      Robot State Topic: /hri_interface
+      Show All Links: true
+      Show Highlights: true
+      Value: true
+      Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -516,7 +650,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.8605821132659912
+      Distance: 2.416081666946411
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -524,17 +658,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.75
       Focal Point:
-        X: 0.15022927522659302
-        Y: -0.016830630600452423
-        Z: 0.3236057758331299
+        X: 0.3865169882774353
+        Y: 0.21860642731189728
+        Z: 0.3761483430862427
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.31979748606681824
+      Pitch: 0.1797974407672882
       Target Frame: yumi_base_link
-      Yaw: 6.281384468078613
+      Yaw: 1.6731466054916382
     Saved: ~
 Window Geometry:
   Displays:
@@ -550,11 +684,11 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc020000000bfb000000100044006900730070006c006100790073010000003d000001ae000000c900fffffffb0000000c00480075006d0061006e007301000001f10000016a0000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000003610000017d0000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006901000004e40000005a0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000003cc0000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc020000000bfb000000100044006900730070006c006100790073010000003d00000253000000c900fffffffb0000000c00480075006d0061006e007300000001ec000001650000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000296000002250000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006901000004c10000007d0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000004030000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1477
+  Width: 1532
   X: 0
   Y: 0
