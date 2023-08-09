@@ -33,6 +33,9 @@
 #include <memory>
 #include <functional>
 
+#include <algorithm>
+#include <Eigen/Geometry>
+
 using namespace std;
 
 const double tau = 2 * M_PI;
@@ -682,7 +685,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object.pose);
         visual_tools_->trigger();
 
@@ -745,7 +747,7 @@ public:
         return true;
     }
 
-    bool pointToObjectSide(string object_id, Eigen::Vector3d sideInfo)
+    bool pointToObjectSide(std::string object_id, Eigen::Vector3d sideInfo)
     {
 
         visual_tools_->deleteAllMarkers();
@@ -772,7 +774,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object_pose);
         visual_tools_->trigger();
 
@@ -834,7 +835,7 @@ public:
         return true;
     }
 
-    bool pointToHuman(string target_frame)
+    bool pointToHuman(std::string target_frame)
     {
         visual_tools_->deleteAllMarkers();
 
@@ -930,7 +931,7 @@ public:
         }
     }
 
-    bool signalRotate(string object_id, Eigen::Vector3d rotationInfo)
+    bool signalRotate(std::string object_id, Eigen::Vector3d rotationInfo)
     {
         visual_tools_->deleteAllMarkers();
 
@@ -956,7 +957,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object_pose);
         visual_tools_->trigger();
 
@@ -967,7 +967,7 @@ public:
         for (int i = 0; i < 2; i++)
         {
             approach_options.push_back(objectEigen);
-            approach_options[i].translate(rotationInfo * pow(-1, i) * (radius + 0.1));
+            approach_options[i].translate(rotationInfo * pow(-1, i) * (radius + 0.12));
         }
 
         arm_mgi_->setStartStateToCurrentState();
@@ -975,39 +975,52 @@ public:
 
         Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
 
-        Eigen::Isometry3d closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
+        std::vector<Eigen::Isometry3d> closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
 
         visual_tools_->publishAxis(approach_options[0]);
         visual_tools_->publishAxis(approach_options[1]);
-        visual_tools_->publishAxisLabeled(closestApproachOption, "Closest");
+        visual_tools_->publishAxisLabeled(closestApproachOption[0], "Closest");
         visual_tools_->trigger();
 
-        double xTarget = object_pose.position.x - closestApproachOption.translation().x();
-        double yTarget = object_pose.position.y - closestApproachOption.translation().y();
-        double zTarget = object_pose.position.z - closestApproachOption.translation().z();
-
-        double sideAngle = atan2(yTarget, xTarget);
-        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
-
-        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
-        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
-        tf2::Quaternion qresult = q1 * q2;
-        qresult.normalize();
-
-        geometry_msgs::Quaternion q_msg;
-        tf2::convert(qresult, q_msg);
-
+        bool sucess_pose = false;
         geometry_msgs::Pose lookPose;
-        lookPose.position.x = closestApproachOption.translation().x();
-        lookPose.position.y = closestApproachOption.translation().y();
-        lookPose.position.z = closestApproachOption.translation().z();
-        lookPose.orientation = q_msg;
 
-        visual_tools_->publishAxis(lookPose);
-        visual_tools_->trigger();
-
-        if (!computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
+        for (const auto approach : closestApproachOption)
         {
+
+            double xTarget = object_pose.position.x - approach.translation().x();
+            double yTarget = object_pose.position.y - approach.translation().y();
+            double zTarget = object_pose.position.z - approach.translation().z();
+
+            double sideAngle = atan2(yTarget, xTarget);
+            double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+            tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+            tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+            tf2::Quaternion qresult = q1 * q2;
+            qresult.normalize();
+
+            geometry_msgs::Quaternion q_msg;
+            tf2::convert(qresult, q_msg);
+
+            lookPose.position.x = approach.translation().x();
+            lookPose.position.y = approach.translation().y();
+            lookPose.position.z = approach.translation().z();
+            lookPose.orientation = q_msg;
+
+            visual_tools_->publishAxis(lookPose);
+            visual_tools_->trigger();
+
+            if (computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
+            {
+                sucess_pose = true;
+                break;
+            }
+        }
+
+        if (!sucess_pose)
+        {
+            ROS_ERROR("Can't find suitable pose");
             return false;
         }
 
@@ -1161,28 +1174,19 @@ private:
         gripper_mgi_->plan(openPlan);
     }
 
-    Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const Eigen::Isometry3d &linkTransform)
+    std::vector<Eigen::Isometry3d> findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const Eigen::Isometry3d &linkTransform)
     {
-        Eigen::Isometry3d closestApproachOption;
-        double minDistance = std::numeric_limits<double>::max();
+        std::vector<Eigen::Isometry3d> sorted_approach_options = approach_options;
+        std::sort(sorted_approach_options.begin(), sorted_approach_options.end(), [&linkTransform](const Eigen::Isometry3d &p1, const Eigen::Isometry3d &p2)
+                  {
+        double d1 = (linkTransform.translation() - p1.translation()).norm();
+        double d2 = (linkTransform.translation() - p2.translation()).norm();
+        return (d1 < d2); });
 
-        for (const auto &approachOption : approach_options)
-        {
-            // Calculate distance between linkEigen and the current approach option
-            double distance = (linkTransform.translation() - approachOption.translation()).norm();
-
-            // Update the closestApproachOption if the current distance is smaller
-            if (distance < minDistance)
-            {
-                minDistance = distance;
-                closestApproachOption = approachOption;
-            }
-        }
-
-        return closestApproachOption;
+        return sorted_approach_options;
     }
 
-    vector<geometry_msgs::Pose> computePointsOnSphere(int numPoints, geometry_msgs::Point point, geometry_msgs::Point reference_position, double theta_distance, double phi_distance)
+    std::vector<geometry_msgs::Pose> computePointsOnSphere(int numPoints, geometry_msgs::Point point, geometry_msgs::Point reference_position, double theta_distance, double phi_distance)
     {
         double theta, phi; // Polar and azimuthal angles
 
@@ -1274,7 +1278,7 @@ private:
                 visual_tools_->publishAxis(pose);
                 visual_tools_->trigger();
 
-                if (arm_state.setFromIK(arm_jmg_, lookPose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
+                if (arm_state.setFromIK(arm_jmg_, pose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
                 {
                     return true;
                 }

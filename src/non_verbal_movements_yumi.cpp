@@ -483,7 +483,7 @@ public:
     }
 
     // bool mode (true = screw, false = unscrew)
-    void screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
+    bool screw_unscrew(bool mode, geometry_msgs::Pose input_pose)
     {
 
         arm_mgi_->setStartStateToCurrentState();
@@ -512,7 +512,7 @@ public:
 
         if (!computeLookPose(arm_state, initial_pose, input_pose, 20, 0.5, 0.5))
         {
-            return;
+            return false;
         }
 
         std::vector<double> joint_group_positions;
@@ -528,7 +528,7 @@ public:
         if (!(arm_mgi_->plan(planSetInitialPosition) == moveit::core::MoveItErrorCode::SUCCESS))
         {
             ROS_ERROR("Can't plan for initial position");
-            return;
+            return false;
         }
 
         // Perform action of EndEffector
@@ -598,6 +598,75 @@ public:
         arm_mgi_->execute(planSetInitialPosition);
         arm_mgi_->execute(trajectory);
         visual_tools_->deleteAllMarkers();
+
+        return true;
+    }
+
+    bool pointToPoint(geometry_msgs::Point point)
+    {
+        visual_tools_->deleteAllMarkers();
+
+        // Create a vector from shoulder to object to calculate pose
+
+        arm_mgi_->setStartStateToCurrentState();
+        moveit::core::RobotState arm_state(*arm_mgi_->getCurrentState());
+
+        Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
+
+        double xTarget = point.x - linkTransform.translation().x();
+        double yTarget = point.y - linkTransform.translation().y();
+        double zTarget = point.z - linkTransform.translation().z();
+
+        double distance = sqrt(pow(xTarget, 2) + pow(yTarget, 2) + pow(zTarget, 2));
+
+        double targetDistance = distance - 0.20 >= 0.6 ? 0.6 : distance - 0.20;
+
+        double scalingFactor = (targetDistance) / distance;
+
+        xTarget *= scalingFactor;
+        yTarget *= scalingFactor;
+        zTarget *= scalingFactor;
+
+        double sideAngle = atan2(yTarget, xTarget);
+        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+        tf2::Quaternion qresult = q1 * q2;
+        qresult.normalize();
+
+        geometry_msgs::Quaternion q_msg;
+        tf2::convert(qresult, q_msg);
+
+        geometry_msgs::Pose lookPose;
+        lookPose.position.x = linkTransform.translation().x() + xTarget;
+        lookPose.position.y = linkTransform.translation().y() + yTarget;
+        lookPose.position.z = linkTransform.translation().z() + zTarget;
+        lookPose.orientation = q_msg;
+
+        visual_tools_->publishAxis(lookPose);
+        visual_tools_->trigger();
+
+        geometry_msgs::Pose pointPose;
+        pointPose.position = point;
+        pointPose.orientation.w = 1.0;
+
+        if (!computeLookPose(arm_state, lookPose, pointPose, 10, 2.0, 2.0))
+        {
+            return false;
+        }
+
+        std::vector<double> lookPose_joint_positions;
+        arm_state.copyJointGroupPositions(arm_jmg_, lookPose_joint_positions);
+        arm_mgi_->setJointValueTarget(lookPose_joint_positions);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        if (!(arm_mgi_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS))
+        {
+            ROS_ERROR("Can't plan for pointing movement");
+            return false;
+        }
+        arm_mgi_->execute(plan);
+        return true;
     }
 
     bool pointToObject(std::string object_id)
@@ -612,7 +681,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object.pose);
         visual_tools_->trigger();
 
@@ -675,7 +743,7 @@ public:
         return true;
     }
 
-    bool pointToObjectSide(string object_id, Eigen::Vector3d sideInfo)
+    bool pointToObjectSide(std::string object_id, Eigen::Vector3d sideInfo)
     {
 
         visual_tools_->deleteAllMarkers();
@@ -702,7 +770,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object_pose);
         visual_tools_->trigger();
 
@@ -764,7 +831,7 @@ public:
         return true;
     }
 
-    bool pointToHuman(string target_frame)
+    bool pointToHuman(std::string target_frame)
     {
         visual_tools_->deleteAllMarkers();
 
@@ -853,7 +920,6 @@ public:
         planList.push_back(closePlan);
         planList.push_back(openPlan);
         planList.push_back(closePlan);
-        planList.push_back(openPlan);
 
         for (const auto &planValue : planList)
         {
@@ -861,7 +927,7 @@ public:
         }
     }
 
-    bool signalRotate(string object_id, Eigen::Vector3d rotationInfo)
+    bool signalRotate(std::string object_id, Eigen::Vector3d rotationInfo)
     {
         visual_tools_->deleteAllMarkers();
 
@@ -887,7 +953,6 @@ public:
         geometry_msgs::Pose object_pose = object.pose;
 
         double radius = sqrt(pow(object.primitives[0].dimensions[0], 2) + pow(object.primitives[0].dimensions[1], 2) + pow(object.primitives[0].dimensions[2], 2));
-        // visual_tools_->publishSphere(object_pose, rviz_visual_tools::colors::PINK, radius);
         visual_tools_->publishAxis(object_pose);
         visual_tools_->trigger();
 
@@ -906,39 +971,52 @@ public:
 
         Eigen::Isometry3d linkTransform = arm_state.getGlobalLinkTransform(arm_mgi_->getLinkNames().at(0));
 
-        Eigen::Isometry3d closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
+        std::vector<Eigen::Isometry3d> closestApproachOption = findClosestApproachOption(approach_options, linkTransform);
 
         visual_tools_->publishAxis(approach_options[0]);
         visual_tools_->publishAxis(approach_options[1]);
-        visual_tools_->publishAxisLabeled(closestApproachOption, "Closest");
+        visual_tools_->publishAxisLabeled(closestApproachOption[0], "Closest");
         visual_tools_->trigger();
 
-        double xTarget = object_pose.position.x - closestApproachOption.translation().x();
-        double yTarget = object_pose.position.y - closestApproachOption.translation().y();
-        double zTarget = object_pose.position.z - closestApproachOption.translation().z();
-
-        double sideAngle = atan2(yTarget, xTarget);
-        double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
-
-        tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
-        tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
-        tf2::Quaternion qresult = q1 * q2;
-        qresult.normalize();
-
-        geometry_msgs::Quaternion q_msg;
-        tf2::convert(qresult, q_msg);
-
+        bool sucess_pose = false;
         geometry_msgs::Pose lookPose;
-        lookPose.position.x = closestApproachOption.translation().x();
-        lookPose.position.y = closestApproachOption.translation().y();
-        lookPose.position.z = closestApproachOption.translation().z();
-        lookPose.orientation = q_msg;
 
-        visual_tools_->publishAxis(lookPose);
-        visual_tools_->trigger();
-
-        if (!computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
+        for (const auto approach : closestApproachOption)
         {
+
+            double xTarget = object_pose.position.x - approach.translation().x();
+            double yTarget = object_pose.position.y - approach.translation().y();
+            double zTarget = object_pose.position.z - approach.translation().z();
+
+            double sideAngle = atan2(yTarget, xTarget);
+            double tiltAngle = M_PI_2 - atan2(zTarget, sqrt(pow(xTarget, 2) + pow(yTarget, 2)));
+
+            tf2::Quaternion q1(tf2::Vector3(0, 0, 1), sideAngle);
+            tf2::Quaternion q2(tf2::Vector3(0, 1, 0), tiltAngle);
+            tf2::Quaternion qresult = q1 * q2;
+            qresult.normalize();
+
+            geometry_msgs::Quaternion q_msg;
+            tf2::convert(qresult, q_msg);
+
+            lookPose.position.x = approach.translation().x();
+            lookPose.position.y = approach.translation().y();
+            lookPose.position.z = approach.translation().z();
+            lookPose.orientation = q_msg;
+
+            visual_tools_->publishAxis(lookPose);
+            visual_tools_->trigger();
+
+            if (computeLookPose(arm_state, lookPose, object_pose, 10, 1.0, 1.0))
+            {
+                sucess_pose = true;
+                break;
+            }
+        }
+
+        if (!sucess_pose)
+        {
+            ROS_ERROR("Can't find suitable pose");
             return false;
         }
 
@@ -1092,28 +1170,19 @@ private:
         gripper_mgi_->plan(openPlan);
     }
 
-    Eigen::Isometry3d findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const Eigen::Isometry3d &linkTransform)
+    std::vector<Eigen::Isometry3d> findClosestApproachOption(const std::vector<Eigen::Isometry3d> &approach_options, const Eigen::Isometry3d &linkTransform)
     {
-        Eigen::Isometry3d closestApproachOption;
-        double minDistance = std::numeric_limits<double>::max();
+        std::vector<Eigen::Isometry3d> sorted_approach_options = approach_options;
+        std::sort(sorted_approach_options.begin(), sorted_approach_options.end(), [&linkTransform](const Eigen::Isometry3d &p1, const Eigen::Isometry3d &p2)
+                  {
+        double d1 = (linkTransform.translation() - p1.translation()).norm();
+        double d2 = (linkTransform.translation() - p2.translation()).norm();
+        return (d1 < d2); });
 
-        for (const auto &approachOption : approach_options)
-        {
-            // Calculate distance between linkEigen and the current approach option
-            double distance = (linkTransform.translation() - approachOption.translation()).norm();
-
-            // Update the closestApproachOption if the current distance is smaller
-            if (distance < minDistance)
-            {
-                minDistance = distance;
-                closestApproachOption = approachOption;
-            }
-        }
-
-        return closestApproachOption;
+        return sorted_approach_options;
     }
 
-    vector<geometry_msgs::Pose> computePointsOnSphere(int numPoints, geometry_msgs::Point point, geometry_msgs::Point reference_position, double theta_distance, double phi_distance)
+    std::vector<geometry_msgs::Pose> computePointsOnSphere(int numPoints, geometry_msgs::Point point, geometry_msgs::Point reference_position, double theta_distance, double phi_distance)
     {
         double theta, phi; // Polar and azimuthal angles
 
@@ -1170,48 +1239,49 @@ private:
         return poses;
     }
 
-    bool computeLookPose(moveit::core::RobotState &arm_state, geometry_msgs::Pose lookPose, geometry_msgs::Pose focus_position, int numPoints, double theta, double phi)
+    bool isStateValid(moveit::core::RobotState *arm_state, const moveit::core::JointModelGroup *group, const double *joint_group_variable_values)
     {
         updatePlanningScene(planning_scene_);
 
-        bool ik_success = arm_state.setFromIK(arm_jmg_, lookPose, 1.0);
+        arm_state->setJointGroupPositions(group, joint_group_variable_values);
+        arm_state->update();
+
+        visual_tools_->publishRobotState(*arm_state, rviz_visual_tools::GREEN);
+
         collision_detection::CollisionRequest collision_request;
         collision_request.contacts = false;
         collision_request.distance = false;
         collision_request.cost = false;
         collision_detection::CollisionResult collision_result;
-        planning_scene_->getCurrentStateNonConst() = arm_state;
+        collision_result.clear();
+        planning_scene_->getCurrentStateNonConst() = *arm_state;
         planning_scene_->checkCollision(collision_request, collision_result);
 
-        ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
         ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
-        if (!(ik_success && !collision_result.collision))
+
+        return !collision_result.collision;
+    }
+
+    bool computeLookPose(moveit::core::RobotState &arm_state, geometry_msgs::Pose lookPose, geometry_msgs::Pose focus_position, int numPoints, double theta, double phi)
+    {
+        if (!arm_state.setFromIK(arm_jmg_, lookPose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
         {
             std::vector<geometry_msgs::Pose> pose_vector = computePointsOnSphere(numPoints, lookPose.position, focus_position.position, theta, phi);
+
             for (const auto &pose : pose_vector)
             {
 
                 visual_tools_->publishAxis(pose);
                 visual_tools_->trigger();
 
-                ik_success = arm_state.setFromIK(arm_jmg_, pose, 0.75);
-
-                collision_result.clear();
-                planning_scene_->getCurrentStateNonConst() = arm_state;
-                planning_scene_->checkCollision(collision_request, collision_result);
-
-                ROS_INFO_STREAM("IK RESULT is " << ((ik_success) ? "valid" : "not valid"));
-                ROS_INFO_STREAM("COLLISION RESULT is " << ((!collision_result.collision) ? "valid" : "not valid"));
-
-                if (ik_success && !collision_result.collision)
-                    break;
+                if (arm_state.setFromIK(arm_jmg_, pose, 0.5, std::bind(&HRI_Interface::isStateValid, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)))
+                {
+                    return true;
+                }
             }
 
-            if (!(ik_success && !collision_result.collision))
-            {
-                ROS_ERROR("Pose cannot be achieved.");
-                return false;
-            }
+            ROS_ERROR("Pose cannot be achieved.");
+            return false;
         }
 
         return true;
