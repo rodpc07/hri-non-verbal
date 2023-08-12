@@ -551,7 +551,7 @@ public:
         double fraction;
         moveit_msgs::RobotTrajectory trajectory;
 
-        do
+        for (int attempt = 0; fraction < 0.8 && attempt < 5; attempt++)
         {
 
             geometry_msgs::Pose goal_end_effector_pose = start_end_effector_pose;
@@ -577,8 +577,8 @@ public:
                 waypoints.push_back(goal_end_effector_pose);
             }
 
-            const double jump_threshold = 0.0;
-            const double eef_step = 0.1;
+            const double jump_threshold = 5;
+            const double eef_step = 0.05;
             fraction = arm_mgi_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
 
             visual_tools_->deleteAllMarkers();
@@ -587,18 +587,24 @@ public:
                 visual_tools_->publishAxis(waypoints[i]);
             visual_tools_->trigger();
 
-            if (fraction < 0.8)
+            if (fraction < 0.8 && attempt < 5)
             {
                 translation.z() = translation.z() * 0.95;
                 ROS_INFO_NAMED("tutorial", "Cartesian path FAILED (%.2f%% achieved)", fraction * 100.0);
             }
-            else
+            else if (fraction >= 0.8)
             {
                 ROS_INFO_NAMED("tutorial", "Visualizing Cartesian path (%.2f%% achieved)", fraction * 100.0);
             }
-        } while (fraction < 0.8);
+            else
+            {
+                return false;
+            }
+        }
 
         arm_mgi_->setStartStateToCurrentState();
+        gripper_mgi_->setNamedTarget("close");
+        gripper_mgi_->move();
         arm_mgi_->execute(planSetInitialPosition);
         arm_mgi_->execute(trajectory);
         visual_tools_->deleteAllMarkers();
@@ -1327,10 +1333,10 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     object_colors[i].id = collision_objects[i].id;
 
     std_msgs::ColorRGBA boardA_color;
-    boardA_color.r = 1;
-    boardA_color.g = 0;
-    boardA_color.b = 0;
-    boardA_color.a = 1;
+    boardA_color.r = 195 / 255.0;
+    boardA_color.g = 247 / 255.0;
+    boardA_color.b = 200 / 255.0;
+    boardA_color.a = 1.0;
 
     object_colors[i].color = boardA_color;
 
@@ -1340,7 +1346,7 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].header.frame_id = "yumi_base_link";
 
     collision_objects[i].primitives.resize(1);
-    collision_objects[i].primitives[0].type = collision_objects[0].primitives[0].BOX;
+    collision_objects[i].primitives[0].type = collision_objects[i].primitives[0].BOX;
     collision_objects[i].primitives[0].dimensions.resize(3);
     // collision_objects[i].primitives[0].dimensions[0] = 0.05334;
     // collision_objects[i].primitives[0].dimensions[1] = 0.06858;
@@ -1360,10 +1366,10 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     object_colors[i].id = collision_objects[i].id;
 
     std_msgs::ColorRGBA boardB_color;
-    boardB_color.r = 0;
-    boardB_color.g = 1;
-    boardB_color.b = 0;
-    boardB_color.a = 1;
+    boardB_color.r = 255 / 255.0;
+    boardB_color.g = 227 / 255.0;
+    boardB_color.b = 66 / 255.0;
+    boardB_color.a = 1.0;
 
     object_colors[i].color = boardB_color;
 
@@ -1373,7 +1379,7 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].header.frame_id = "yumi_base_link";
 
     collision_objects[i].primitives.resize(1);
-    collision_objects[i].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[i].primitives[0].type = collision_objects[i].primitives[0].BOX;
     collision_objects[i].primitives[0].dimensions.resize(3);
     collision_objects[i].primitives[0].dimensions[0] = 0.75;
     collision_objects[i].primitives[0].dimensions[1] = 1.8;
@@ -1402,23 +1408,61 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].id = "test_station";
     collision_objects[i].header.frame_id = "yumi_base_link";
 
-    collision_objects[i].primitives.resize(1);
-    collision_objects[i].primitives[0].type = collision_objects[1].primitives[0].BOX;
+    collision_objects[i].primitives.resize(4);
+    collision_objects[i].primitive_poses.resize(4);
+
+    collision_objects[i].primitives[0].type = collision_objects[i].primitives[0].BOX;
     collision_objects[i].primitives[0].dimensions.resize(3);
     collision_objects[i].primitives[0].dimensions[0] = 0.02;
     collision_objects[i].primitives[0].dimensions[1] = 0.04;
     collision_objects[i].primitives[0].dimensions[2] = 0.03;
 
-    collision_objects[i].primitive_poses.resize(1);
     collision_objects[i].primitive_poses[0].position.x = 0.38;
     collision_objects[i].primitive_poses[0].position.y = 0.0;
     collision_objects[i].primitive_poses[0].position.z = 0.03;
     collision_objects[i].primitive_poses[0].orientation.w = 1.0;
 
+    collision_objects[i].primitives[1].type = collision_objects[i].primitives[1].BOX;
+    collision_objects[i].primitives[1].dimensions.resize(3);
+    collision_objects[i].primitives[1].dimensions[0] = 0.02;
+    collision_objects[i].primitives[1].dimensions[1] = 0.10;
+    collision_objects[i].primitives[1].dimensions[2] = 0.01;
+
+    collision_objects[i].primitive_poses[1].position.x = 0.38;
+    collision_objects[i].primitive_poses[1].position.y = 0.0;
+    collision_objects[i].primitive_poses[1].position.z = 0.02;
+    collision_objects[i].primitive_poses[1].orientation.w = 1.0;
+
+    collision_objects[i].primitives[2].type = collision_objects[i].primitives[2].CYLINDER;
+    collision_objects[i].primitives[2].dimensions.resize(2);
+    collision_objects[i].primitives[2].dimensions[0] = 0.04;
+    collision_objects[i].primitives[2].dimensions[1] = 0.005;
+
+    collision_objects[i].primitive_poses[2].position.x = 0.38;
+    collision_objects[i].primitive_poses[2].position.y = -0.04;
+    collision_objects[i].primitive_poses[2].position.z = 0.03;
+    collision_objects[i].primitive_poses[2].orientation.w = 1.0;
+
+    collision_objects[i].primitives[3].type = collision_objects[i].primitives[3].CYLINDER;
+    collision_objects[i].primitives[3].dimensions.resize(2);
+    collision_objects[i].primitives[3].dimensions[0] = 0.04;
+    collision_objects[i].primitives[3].dimensions[1] = 0.005;
+
+    collision_objects[i].primitive_poses[3].position.x = 0.38;
+    collision_objects[i].primitive_poses[3].position.y = 0.04;
+    collision_objects[i].primitive_poses[3].position.z = 0.03;
+    collision_objects[i].primitive_poses[3].orientation.w = 1.0;
+
     collision_objects[i].operation = collision_objects[i].ADD;
 
+    std_msgs::ColorRGBA test_station_color;
+    test_station_color.r = 255 / 255;
+    test_station_color.g = 255 / 255;
+    test_station_color.b = 255 / 255;
+    test_station_color.a = 1.0;
+
     object_colors[i].id = collision_objects[i].id;
-    object_colors[i].color = table_color;
+    object_colors[i].color = test_station_color;
 
     planning_scene_interface.applyCollisionObjects(collision_objects, object_colors);
 }
@@ -1639,6 +1683,24 @@ int main(int argc, char **argv)
     point.y = 0.21;
     point.z = 0.015 + 0.0016 / 2;
 
+    geometry_msgs::Pose left_screw;
+    left_screw.position.x = 0.377881;
+    left_screw.position.y = -0.0375694;
+    left_screw.position.z = 0.203597;
+    left_screw.orientation.x = 0.0296446;
+    left_screw.orientation.y = 0.999512;
+    left_screw.orientation.z = -0.00653646;
+    left_screw.orientation.w = 0.00734531;
+
+    geometry_msgs::Pose right_screw;
+    right_screw.position.x = 0.377225;
+    right_screw.position.y = 0.0436978;
+    right_screw.position.z = 0.202577;
+    right_screw.orientation.x = 0.0296969;
+    right_screw.orientation.y = 0.99951;
+    right_screw.orientation.z = -0.0064328;
+    right_screw.orientation.w = 0.00754602;
+
     int choice;
     string input;
     do
@@ -1666,31 +1728,62 @@ int main(int argc, char **argv)
             printPose(object);
             break;
         case 3:
-            cout << "EXECUTING TASK.\n";
-            left_arm_hri.pointToHuman(human);
-            ros::WallDuration(1).sleep();
+            // cout << "EXECUTING TASK.\n";
+            // left_arm_hri.pointToHuman(human);
 
-            left_arm_hri.pointToObject("board_A");
-            left_arm_hri.signalPick();
+            // visual_tools->prompt("");
 
-            left_arm_hri.pointToPoint(point);
+            // // MOVEMENT A
 
-            left_gripper_mgi->setNamedTarget("open");
-            left_gripper_mgi->move();
+            // left_arm_hri.pointToObject("board_A");
 
-            left_arm_mgi->setNamedTarget("side");
-            left_arm_mgi->move();
+            // visual_tools->prompt("");
 
-            visual_tools->prompt("Put Board in required position");
+            // left_arm_hri.signalPick();
 
-            moveObject(*planning_scene_interface, "board_A", 0.39, 0.21, 0.015 + 0.0016 / 2);
-            ros::WallDuration(1).sleep();
+            // visual_tools->prompt("");
 
-            pick1(*left_arm_mgi, *left_gripper_mgi);
-            place1(*left_arm_mgi, *left_gripper_mgi);
+            // left_arm_hri.pointToPoint(point);
 
-            left_arm_mgi->setNamedTarget("side");
-            left_arm_mgi->move();
+            // left_gripper_mgi->setNamedTarget("open");
+            // left_gripper_mgi->move();
+
+            // visual_tools->prompt("");
+
+            // left_arm_mgi->setNamedTarget("side");
+            // left_arm_mgi->move();
+
+            // visual_tools->prompt("Put Board in required position");
+
+            // moveObject(*planning_scene_interface, "board_A", 0.39, 0.21, 0.015 + 0.0016 / 2);
+
+            // visual_tools->prompt("");
+
+            // // MOVEMENT C
+
+            // pick1(*left_arm_mgi, *left_gripper_mgi);
+
+            // visual_tools->prompt("");
+
+            // place1(*left_arm_mgi, *left_gripper_mgi);
+
+            // visual_tools->prompt("");
+
+            // left_arm_mgi->setNamedTarget("side");
+            // left_arm_mgi->move();
+
+            // MOVEMENT D
+
+            right_arm_hri.screw_unscrew(true, left_screw);
+
+            visual_tools->prompt("");
+
+            right_arm_hri.screw_unscrew(true, right_screw);
+
+            visual_tools->prompt("");
+
+            right_arm_mgi->setNamedTarget("side");
+            right_arm_mgi->move();
 
             break;
         case 0:
