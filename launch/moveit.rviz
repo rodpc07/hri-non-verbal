@@ -4,11 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /MotionPlanning1
         - /MotionPlanning1/Scene Robot1
         - /MotionPlanning1/Planning Request1
-        - /RobotState1
       Splitter Ratio: 0.49899396300315857
-    Tree Height: 534
+    Tree Height: 483
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -207,7 +207,7 @@ Visualization Manager:
         Interactive Marker Size: 0
         Joint Violation Color: 255; 0; 255
         Planning Group: both_arms
-        Query Goal State: false
+        Query Goal State: true
         Query Start State: false
         Show Workspace: false
         Start State Alpha: 1
@@ -344,79 +344,29 @@ Visualization Manager:
       Value: true
       Velocity_Scaling_Factor: 1
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /rviz_visual_tools
       Name: MarkerArray
       Namespaces:
-        Axis: true
-        Sphere: true
-        Text: true
+        {}
       Queue Size: 100000
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.05000000074505806
       Name: Axes
       Radius: 0.009999999776482582
       Reference Frame: <Fixed Frame>
       Show Trail: false
-      Value: true
+      Value: false
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        gripper_l_base:
-          Value: true
-        gripper_l_finger_l:
-          Value: true
-        gripper_l_finger_r:
-          Value: true
-        gripper_r_base:
-          Value: true
-        gripper_r_finger_l:
-          Value: true
-        gripper_r_finger_r:
-          Value: true
-        my_marker:
-          Value: true
-        world:
-          Value: true
-        yumi_base_link:
-          Value: true
-        yumi_body:
-          Value: true
-        yumi_link_1_l:
-          Value: true
-        yumi_link_1_r:
-          Value: true
-        yumi_link_2_l:
-          Value: true
-        yumi_link_2_r:
-          Value: true
-        yumi_link_3_l:
-          Value: true
-        yumi_link_3_r:
-          Value: true
-        yumi_link_4_l:
-          Value: true
-        yumi_link_4_r:
-          Value: true
-        yumi_link_5_l:
-          Value: true
-        yumi_link_5_r:
-          Value: true
-        yumi_link_6_l:
-          Value: true
-        yumi_link_6_r:
-          Value: true
-        yumi_link_7_l:
-          Value: true
-        yumi_link_7_r:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 0.125
       Name: TF
@@ -424,37 +374,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        world:
-          yumi_base_link:
-            my_marker:
-              {}
-            yumi_body:
-              yumi_link_1_l:
-                yumi_link_2_l:
-                  yumi_link_3_l:
-                    yumi_link_4_l:
-                      yumi_link_5_l:
-                        yumi_link_6_l:
-                          yumi_link_7_l:
-                            gripper_l_base:
-                              gripper_l_finger_l:
-                                {}
-                              gripper_l_finger_r:
-                                {}
-              yumi_link_1_r:
-                yumi_link_2_r:
-                  yumi_link_3_r:
-                    yumi_link_4_r:
-                      yumi_link_5_r:
-                        yumi_link_6_r:
-                          yumi_link_7_r:
-                            gripper_r_base:
-                              gripper_r_finger_l:
-                                {}
-                              gripper_r_finger_r:
-                                {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -481,7 +403,7 @@ Visualization Manager:
       Unreliable: false
       Value: false
     - Class: hri_rviz/TF (HRI)
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: true
@@ -497,142 +419,33 @@ Visualization Manager:
       Tree:
         {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Class: hri_rviz/Skeletons 3D
       Collision Enabled: false
-      Enabled: true
+      Enabled: false
       Name: Skeletons 3D
       TF Prefix: ""
       Update Interval: 0
-      Value: true
+      Value: false
       Visual Enabled: true
     - Attached Body Color: 150; 50; 150
       Class: moveit_rviz_plugin/RobotState
       Collision Enabled: false
-      Enabled: true
+      Enabled: false
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        gripper_l_base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_l_finger_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_l_finger_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_finger_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_r_finger_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        yumi_body:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_1_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_1_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_2_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_2_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_3_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_3_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_4_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_4_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_5_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_5_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: RobotState
       Robot Alpha: 1
       Robot Description: robot_description
       Robot State Topic: /hri_interface
       Show All Links: true
       Show Highlights: true
-      Value: true
+      Value: false
       Visual Enabled: true
   Enabled: true
   Global Options:
@@ -650,25 +463,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.416081666946411
+      Distance: 1.526810646057129
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
-      Field of View: 0.75
+      Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.3865169882774353
-        Y: 0.21860642731189728
-        Z: 0.3761483430862427
-      Focal Shape Fixed Size: true
+        X: 0.32150518894195557
+        Y: -0.2852330207824707
+        Z: -0.051498088985681534
+      Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.1797974407672882
+      Pitch: 0.10039898753166199
       Target Frame: yumi_base_link
-      Yaw: 1.6731466054916382
+      Yaw: 0.19033372402191162
     Saved: ~
 Window Geometry:
   Displays:
@@ -684,7 +497,7 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001f300000501fc020000000bfb000000100044006900730070006c006100790073010000003d00000253000000c900fffffffb0000000c00480075006d0061006e007300000001ec000001650000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a00560069006500770073000000010c000000a4000000a400fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001c3000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000296000002250000017d00fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006901000004c10000007d0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000004030000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000023200000501fc020000000bfb000000100044006900730070006c006100790073010000003d00000220000000c900fffffffb0000000c00480075006d0061006e0073000000010c000001650000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000002630000018f0000017d00fffffffb0000000a0056006900650077007301000003f8000000e5000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006901000004e30000005b0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000003c40000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
     collapsed: false
   Views:
