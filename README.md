@@ -1,2 +1,2 @@
 # hri-non-verbal
- Framework for nonverbal communication for colaborative robots
+Demos using hri_interface
