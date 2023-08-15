@@ -29,6 +29,7 @@ find_package(catkin REQUIRED
     genmsg
     message_generation
     moveit_grasps
+    hri_interface
 )
 
 find_package(Eigen3 REQUIRED)

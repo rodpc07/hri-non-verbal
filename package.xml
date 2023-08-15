@@ -104,6 +104,8 @@
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>moveit_grasps</exec_depend>
 
+  <depend>hri_interface</depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
