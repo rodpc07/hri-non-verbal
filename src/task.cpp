@@ -133,6 +133,11 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].id = "test_station";
     collision_objects[i].header.frame_id = "yumi_base_link";
 
+    collision_objects[i].pose.position.x = 0.38;
+    collision_objects[i].pose.position.y = 0.00;
+    collision_objects[i].pose.position.z = 0.03;
+    collision_objects[i].pose.orientation.w = 1.0;
+
     collision_objects[i].primitives.resize(4);
     collision_objects[i].primitive_poses.resize(4);
 
@@ -142,9 +147,9 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].primitives[0].dimensions[1] = 0.04;
     collision_objects[i].primitives[0].dimensions[2] = 0.03;
 
-    collision_objects[i].primitive_poses[0].position.x = 0.38;
+    collision_objects[i].primitive_poses[0].position.x = 0.0;
     collision_objects[i].primitive_poses[0].position.y = 0.0;
-    collision_objects[i].primitive_poses[0].position.z = 0.03;
+    collision_objects[i].primitive_poses[0].position.z = 0.0;
     collision_objects[i].primitive_poses[0].orientation.w = 1.0;
 
     collision_objects[i].primitives[1].type = collision_objects[i].primitives[1].BOX;
@@ -153,9 +158,9 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].primitives[1].dimensions[1] = 0.10;
     collision_objects[i].primitives[1].dimensions[2] = 0.01;
 
-    collision_objects[i].primitive_poses[1].position.x = 0.38;
+    collision_objects[i].primitive_poses[1].position.x = 0.0;
     collision_objects[i].primitive_poses[1].position.y = 0.0;
-    collision_objects[i].primitive_poses[1].position.z = 0.02;
+    collision_objects[i].primitive_poses[1].position.z = -0.01;
     collision_objects[i].primitive_poses[1].orientation.w = 1.0;
 
     collision_objects[i].primitives[2].type = collision_objects[i].primitives[2].CYLINDER;
@@ -163,9 +168,9 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].primitives[2].dimensions[0] = 0.04;
     collision_objects[i].primitives[2].dimensions[1] = 0.005;
 
-    collision_objects[i].primitive_poses[2].position.x = 0.38;
+    collision_objects[i].primitive_poses[2].position.x = 0.00;
     collision_objects[i].primitive_poses[2].position.y = -0.04;
-    collision_objects[i].primitive_poses[2].position.z = 0.03;
+    collision_objects[i].primitive_poses[2].position.z = 0.00;
     collision_objects[i].primitive_poses[2].orientation.w = 1.0;
 
     collision_objects[i].primitives[3].type = collision_objects[i].primitives[3].CYLINDER;
@@ -173,9 +178,9 @@ void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &pla
     collision_objects[i].primitives[3].dimensions[0] = 0.04;
     collision_objects[i].primitives[3].dimensions[1] = 0.005;
 
-    collision_objects[i].primitive_poses[3].position.x = 0.38;
+    collision_objects[i].primitive_poses[3].position.x = 0.00;
     collision_objects[i].primitive_poses[3].position.y = 0.04;
-    collision_objects[i].primitive_poses[3].position.z = 0.03;
+    collision_objects[i].primitive_poses[3].position.z = 0.00;
     collision_objects[i].primitive_poses[3].orientation.w = 1.0;
 
     collision_objects[i].operation = collision_objects[i].ADD;
@@ -358,6 +363,25 @@ void moveObject(moveit::planning_interface::PlanningSceneInterface &planning_sce
     object.pose.position.x = x;
     object.pose.position.y = y;
     object.pose.position.z = z;
+
+    object.operation = object.ADD;
+
+    planning_scene_interface.applyCollisionObject(object);
+}
+
+void rotateObject(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface, std::string object_id, double roll = 0, double pitch = 0, double yaw = 0)
+{
+
+    std::map<std::string, moveit_msgs::CollisionObject> objects = planning_scene_interface.getObjects();
+
+    moveit_msgs::CollisionObject object = objects[object_id];
+
+    tf2::Quaternion q;
+    q.setRPY(roll, pitch, yaw);
+    geometry_msgs::Quaternion q_msg;
+    tf2::convert(q, q_msg);
+
+    object.pose.orientation = q_msg;
 
     object.operation = object.ADD;
 
@@ -680,7 +704,6 @@ int main(int argc, char **argv)
     auto visual_tools = std::make_shared<moveit_visual_tools::MoveItVisualTools>("yumi_base_link");
     visual_tools->deleteAllMarkers();
     visual_tools->loadRemoteControl();
-    // visual_tools->setGlobalScale(0.4);
 
     // RViz provides many types of markers, in this demo we will use text, cylinders, and spheres
     Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
@@ -730,7 +753,8 @@ int main(int argc, char **argv)
         cout << "MENU:\n"
              << "1. PRINT POSE\n"
              << "2. PRINT OBJECT POSE\n"
-             << "3. EXECUTE TASK\n"
+             << "3. EXECUTE TASK 1\n"
+             << "4. EXECUTE TASK 2\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -750,7 +774,7 @@ int main(int argc, char **argv)
             printPose(object);
             break;
         case 3:
-            cout << "EXECUTING TASK.\n";
+            cout << "EXECUTING TASK 1.\n";
             left_arm_hri.pointToHuman(human);
             ros::Duration(2).sleep();
 
@@ -834,6 +858,48 @@ int main(int argc, char **argv)
 
             right_arm_mgi->setNamedTarget("side");
             right_arm_mgi->move();
+
+            break;
+
+        case 4:
+            cout << "EXECUTING TASK 1.\n";
+            left_arm_hri.pointToHuman(human);
+            ros::Duration(2).sleep();
+
+            visual_tools->prompt("");
+
+            // MOVEMENT A
+
+            left_arm_hri.pointToObject("board_B");
+            visual_tools->prompt("");
+
+            left_arm_hri.signalPick();
+            visual_tools->prompt("");
+
+            left_arm_hri.pointToObject("test_station");
+
+            left_gripper_mgi->setNamedTarget("open");
+            left_gripper_mgi->move();
+
+            visual_tools->prompt("");
+
+            left_arm_mgi->setNamedTarget("side");
+            left_arm_mgi->move();
+
+            visual_tools->prompt("Put Board in required position");
+
+            moveObject(*planning_scene_interface, "board_B", 0.38, 0.0, 0.045 + 0.0016 / 2);
+            ros::Duration(2).sleep();
+
+            // MOVEMENT C
+
+            right_arm_hri.signalRotate("board_B", Eigen::Vector3d(0, 0, -1));
+            ros::Duration(1).sleep();
+
+            right_arm_mgi->setNamedTarget("side");
+            right_arm_mgi->move();
+
+            rotateObject(*planning_scene_interface, "board_B", 0, 0, 90 * (M_PI / 180));
 
             break;
         case 0:
