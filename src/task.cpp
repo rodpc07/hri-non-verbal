@@ -21,8 +21,6 @@
 
 using namespace std;
 
-const double tau = 2 * M_PI;
-
 void addCollisionObjects(moveit::planning_interface::PlanningSceneInterface &planning_scene_interface)
 {
 
