@@ -28,6 +28,7 @@
 #include <moveit/collision_detection/collision_tools.h>
 
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include <memory>
@@ -247,6 +248,35 @@ void printPose(moveit_msgs::CollisionObject object)
     std::cout << "pose.orientation.w = " << pose.orientation.w << ";\n";
 }
 
+void exportPosesToCSV(const std::string &filename, const std::vector<geometry_msgs::Pose> &poses)
+{
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
+
+    // Write the CSV headers
+    file << "Point Id,Position X,Position Y,Position Z,Orientation X,Orientation Y,Orientation Z,Orientation W\n";
+
+    // Loop through the vector of poses and write each pose to the CSV file
+    for (size_t i = 0; i < poses.size(); ++i)
+    {
+        const auto &pose = poses[i];
+        file << i << ","
+             << pose.position.x << ","
+             << pose.position.y << ","
+             << pose.position.z << ","
+             << pose.orientation.x << ","
+             << pose.orientation.y << ","
+             << pose.orientation.z << ","
+             << pose.orientation.w << "\n";
+    }
+
+    file.close();
+}
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "hri_interface");
@@ -311,6 +341,7 @@ int main(int argc, char **argv)
     string input;
     string str1, str2;
     Eigen::Vector3d rotationInfo;
+    std::string filename;
     do
     {
         cout << "MENU:\n"
@@ -324,6 +355,7 @@ int main(int argc, char **argv)
              << "8. SIGNAL PICK\n"
              << "9. COME CLOSE\n"
              << "10. GO AWAY\n"
+             << "11. Find Range\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -398,6 +430,15 @@ int main(int argc, char **argv)
         case 10:
             right_arm_hri.goAway("my_marker");
             left_arm_hri.goAway("my_marker");
+            break;
+
+        case 11:
+            filename = "right_arm_range_poses_with_height.csv";
+            exportPosesToCSV(filename, right_arm_hri.testPose(rviz_visual_tools::CYAN));
+            visual_tools->prompt("");
+            filename = "left_arm_range_poses_with_height.csv";
+            exportPosesToCSV(filename, left_arm_hri.testPose(rviz_visual_tools::ORANGE));
+
             break;
         case 0:
             cout << "Exiting the program...\n";
