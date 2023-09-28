@@ -434,10 +434,10 @@ int main(int argc, char **argv)
 
         case 11:
             filename = "right_arm_range_poses_with_height.csv";
-            exportPosesToCSV(filename, right_arm_hri.testPose(rviz_visual_tools::CYAN));
+            exportPosesToCSV(filename, right_arm_hri.testPose2(rviz_visual_tools::CYAN));
             visual_tools->prompt("");
             filename = "left_arm_range_poses_with_height.csv";
-            exportPosesToCSV(filename, left_arm_hri.testPose(rviz_visual_tools::ORANGE));
+            exportPosesToCSV(filename, left_arm_hri.testPose2(rviz_visual_tools::ORANGE));
 
             break;
         case 0:
