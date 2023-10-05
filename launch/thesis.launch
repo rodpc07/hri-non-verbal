@@ -76,7 +76,9 @@
 
   <!-- INTEL REALSENSE -->
 
-  <arg name="serial_no"           default=""/>
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch" />
+
+  <!-- <arg name="serial_no"           default=""/>
   <arg name="usb_port_id"         default=""/>
   <arg name="device_type"         default="d435"/>
   <arg name="json_file_path"      default=""/>
@@ -223,7 +225,7 @@
       <arg name="ordered_pc"               value="$(arg ordered_pc)"/>
       
     </include>
-  </group>
+  </group> -->
 
 
 

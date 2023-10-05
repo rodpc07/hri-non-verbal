@@ -45,23 +45,23 @@ public:
         left_gripper_jmg = left_gripper_mgi->getCurrentState()->getJointModelGroup("left_gripper");
 
         right_arm_mgi->setMaxVelocityScalingFactor(1.0);
-        right_arm_mgi->setPlanningPipelineId("stomp");
+        // right_arm_mgi->setPlanningPipelineId("stomp");
         right_arm_mgi->setMaxAccelerationScalingFactor(1.0);
         right_arm_mgi->setPlanningTime(5.0);
         right_arm_mgi->allowReplanning(true);
         right_gripper_mgi->setMaxVelocityScalingFactor(1.0);
-        right_gripper_mgi->setPlanningPipelineId("stomp");
+        // right_gripper_mgi->setPlanningPipelineId("stomp");
         right_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
         right_gripper_mgi->setPlanningTime(5.0);
         right_gripper_mgi->allowReplanning(true);
 
         left_arm_mgi->setMaxVelocityScalingFactor(1.0);
-        left_arm_mgi->setPlanningPipelineId("stomp");
+        // left_arm_mgi->setPlanningPipelineId("stomp");
         left_arm_mgi->setMaxAccelerationScalingFactor(1.0);
         left_arm_mgi->setPlanningTime(5.0);
         left_arm_mgi->allowReplanning(true);
         left_gripper_mgi->setMaxVelocityScalingFactor(1.0);
-        left_gripper_mgi->setPlanningPipelineId("stomp");
+        // left_gripper_mgi->setPlanningPipelineId("stomp");
         left_gripper_mgi->setMaxAccelerationScalingFactor(1.0);
         left_gripper_mgi->setPlanningTime(5.0);
         left_gripper_mgi->allowReplanning(true);

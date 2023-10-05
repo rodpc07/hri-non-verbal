@@ -4,10 +4,12 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /MotionPlanning1
         - /MarkerArray1
+        - /Humans1
       Splitter Ratio: 0.21071428060531616
-    Tree Height: 581
+    Tree Height: 181
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -347,8 +349,7 @@ Visualization Manager:
       Marker Topic: /rviz_visual_tools
       Name: MarkerArray
       Namespaces:
-        Sphere: true
-        Text: true
+        {}
       Queue Size: 100000
       Value: true
     - Alpha: 1
@@ -361,12 +362,122 @@ Visualization Manager:
       Show Trail: false
       Value: false
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        body_xctqj:
+          Value: true
+        camera_color_frame:
+          Value: true
+        camera_color_optical_frame:
+          Value: true
+        camera_depth_frame:
+          Value: true
+        camera_depth_optical_frame:
+          Value: true
+        camera_link:
+          Value: true
+        gripper_l_base:
+          Value: true
+        gripper_l_finger_l:
+          Value: true
+        gripper_l_finger_r:
+          Value: true
+        gripper_r_base:
+          Value: true
+        gripper_r_finger_l:
+          Value: true
+        gripper_r_finger_r:
+          Value: true
+        head_xctqj:
+          Value: true
+        l_ankle_xctqj:
+          Value: true
+        l_elbow_xctqj:
+          Value: true
+        l_hip_xctqj:
+          Value: true
+        l_knee_xctqj:
+          Value: true
+        l_p_hip_xctqj:
+          Value: true
+        l_p_shoulder_xctqj:
+          Value: true
+        l_shoulder_xctqj:
+          Value: true
+        l_wrist_xctqj:
+          Value: true
+        l_y_hip_xctqj:
+          Value: true
+        l_y_shoulder_xctqj:
+          Value: true
+        p_head_xctqj:
+          Value: true
+        r_ankle_xctqj:
+          Value: true
+        r_elbow_xctqj:
+          Value: true
+        r_head_xctqj:
+          Value: true
+        r_hip_xctqj:
+          Value: true
+        r_knee_xctqj:
+          Value: true
+        r_p_hip_xctqj:
+          Value: true
+        r_p_shoulder_xctqj:
+          Value: true
+        r_shoulder_xctqj:
+          Value: true
+        r_wrist_xctqj:
+          Value: true
+        r_y_hip_xctqj:
+          Value: true
+        r_y_shoulder_xctqj:
+          Value: true
+        torso_xctqj:
+          Value: true
+        waist_xctqj:
+          Value: true
+        world:
+          Value: true
+        y_head_xctqj:
+          Value: true
+        yumi_base_link:
+          Value: true
+        yumi_body:
+          Value: true
+        yumi_link_1_l:
+          Value: true
+        yumi_link_1_r:
+          Value: true
+        yumi_link_2_l:
+          Value: true
+        yumi_link_2_r:
+          Value: true
+        yumi_link_3_l:
+          Value: true
+        yumi_link_3_r:
+          Value: true
+        yumi_link_4_l:
+          Value: true
+        yumi_link_4_r:
+          Value: true
+        yumi_link_5_l:
+          Value: true
+        yumi_link_5_r:
+          Value: true
+        yumi_link_6_l:
+          Value: true
+        yumi_link_6_r:
+          Value: true
+        yumi_link_7_l:
+          Value: true
+        yumi_link_7_r:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 0.125
       Name: TF
@@ -374,9 +485,73 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        world:
+          camera_link:
+            camera_color_frame:
+              camera_color_optical_frame:
+                body_xctqj:
+                  l_y_hip_xctqj:
+                    l_p_hip_xctqj:
+                      l_hip_xctqj:
+                        l_knee_xctqj:
+                          l_ankle_xctqj:
+                            {}
+                  r_y_hip_xctqj:
+                    r_p_hip_xctqj:
+                      r_hip_xctqj:
+                        r_knee_xctqj:
+                          r_ankle_xctqj:
+                            {}
+                  waist_xctqj:
+                    torso_xctqj:
+                      l_y_shoulder_xctqj:
+                        l_p_shoulder_xctqj:
+                          l_shoulder_xctqj:
+                            l_elbow_xctqj:
+                              l_wrist_xctqj:
+                                {}
+                      r_head_xctqj:
+                        y_head_xctqj:
+                          p_head_xctqj:
+                            head_xctqj:
+                              {}
+                      r_y_shoulder_xctqj:
+                        r_p_shoulder_xctqj:
+                          r_shoulder_xctqj:
+                            r_elbow_xctqj:
+                              r_wrist_xctqj:
+                                {}
+            camera_depth_frame:
+              camera_depth_optical_frame:
+                {}
+          yumi_base_link:
+            yumi_body:
+              yumi_link_1_l:
+                yumi_link_2_l:
+                  yumi_link_3_l:
+                    yumi_link_4_l:
+                      yumi_link_5_l:
+                        yumi_link_6_l:
+                          yumi_link_7_l:
+                            gripper_l_base:
+                              gripper_l_finger_l:
+                                {}
+                              gripper_l_finger_r:
+                                {}
+              yumi_link_1_r:
+                yumi_link_2_r:
+                  yumi_link_3_r:
+                    yumi_link_4_r:
+                      yumi_link_5_r:
+                        yumi_link_6_r:
+                          yumi_link_7_r:
+                            gripper_r_base:
+                              gripper_r_finger_l:
+                                {}
+                              gripper_r_finger_r:
+                                {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -387,8 +562,8 @@ Visualization Manager:
       Update Topic: /interactive_marker/update
       Value: true
     - Class: hri_rviz/Humans
-      Enabled: false
-      Image Topic: ""
+      Enabled: true
+      Image Topic: /camera/color/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -401,7 +576,7 @@ Visualization Manager:
       Show facial landmarks: true
       Transport Hint: raw
       Unreliable: false
-      Value: false
+      Value: true
     - Class: hri_rviz/TF (HRI)
       Enabled: false
       Frame Timeout: 15
@@ -423,15 +598,6 @@ Visualization Manager:
     - Alpha: 1
       Class: hri_rviz/Skeletons 3D
       Collision Enabled: false
-      Enabled: false
-      Name: Skeletons 3D
-      TF Prefix: ""
-      Update Interval: 0
-      Value: false
-      Visual Enabled: true
-    - Attached Body Color: 150; 50; 150
-      Class: moveit_rviz_plugin/RobotState
-      Collision Enabled: false
       Enabled: true
       Links:
         All Links Enabled: true
@@ -439,129 +605,157 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        gripper_l_base:
+        body_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        head_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        gripper_l_finger_l:
+        l_ankle_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        l_elbow_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        gripper_l_finger_r:
+        l_hip_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        gripper_r_base:
+        l_knee_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        gripper_r_finger_l:
+        l_p_hip_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        l_p_shoulder_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        l_shoulder_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        gripper_r_finger_r:
+        l_wrist_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        l_y_hip_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        yumi_body:
+        l_y_shoulder_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_1_l:
+        p_head_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_ankle_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_elbow_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_1_r:
+        r_head_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_hip_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_2_l:
+        r_knee_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_2_r:
+        r_p_hip_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_p_shoulder_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_shoulder_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_3_l:
+        r_wrist_xctqj:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        r_y_hip_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_3_r:
+        r_y_shoulder_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_4_l:
+        torso_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        yumi_link_4_r:
+        waist_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        yumi_link_5_l:
+        y_head_xctqj:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        yumi_link_5_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_6_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_l:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        yumi_link_7_r:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
+      Name: Skeletons 3D
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
+    - Attached Body Color: 150; 50; 150
+      Class: moveit_rviz_plugin/RobotState
+      Collision Enabled: false
+      Enabled: false
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
       Name: RobotState
       Robot Alpha: 1
       Robot Description: robot_description
       Robot State Topic: /hri_interface
       Show All Links: true
       Show Highlights: true
-      Value: true
+      Value: false
       Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
     Fixed Frame: yumi_base_link
-    Frame Rate: 30
+    Frame Rate: 60
   Name: root
   Tools:
     - Class: rviz/Interact
@@ -572,7 +766,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.815661072731018
+      Distance: 4.495510101318359
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -580,37 +774,37 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.149519681930542
-        Y: -0.013588076457381248
-        Z: 0.06135379150509834
+        X: 0.39870598912239075
+        Y: -0.06593184173107147
+        Z: 0.39513131976127625
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5504025220870972
+      Pitch: 0.42540261149406433
       Target Frame: yumi_base_link
-      Yaw: 6.208486080169678
+      Yaw: 2.6353046894073486
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
-  Height: 1371
+    collapsed: false
+  Height: 1011
   Help:
     collapsed: false
-  Hide Left Dock: true
+  Hide Left Dock: false
   Hide Right Dock: false
   Humans:
     collapsed: false
   MotionPlanning:
-    collapsed: true
+    collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000023200000501fc020000000bfb000000100044006900730070006c006100790073000000003d00000282000000c900fffffffb0000000c00480075006d0061006e0073000000010c000001650000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006700000002c5000002180000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006900000004e30000005b0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000006750000050100000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000023200000399fc020000000bfb000000100044006900730070006c006100790073010000003d000000f2000000c900fffffffb0000000c00480075006d0061006e00730100000135000000cc0000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000207000001880000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000395000000410000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff00000000000000000000027a0000039900000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
-    collapsed: true
+    collapsed: false
   Views:
     collapsed: false
-  Width: 1653
+  Width: 1202
   X: 0
   Y: 0
