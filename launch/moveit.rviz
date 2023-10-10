@@ -7,9 +7,8 @@ Panels:
         - /Global Options1
         - /MotionPlanning1
         - /MarkerArray1
-        - /Humans1
       Splitter Ratio: 0.21071428060531616
-    Tree Height: 181
+    Tree Height: 402
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -368,18 +367,6 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        body_xctqj:
-          Value: true
-        camera_color_frame:
-          Value: true
-        camera_color_optical_frame:
-          Value: true
-        camera_depth_frame:
-          Value: true
-        camera_depth_optical_frame:
-          Value: true
-        camera_link:
-          Value: true
         gripper_l_base:
           Value: true
         gripper_l_finger_l:
@@ -392,59 +379,7 @@ Visualization Manager:
           Value: true
         gripper_r_finger_r:
           Value: true
-        head_xctqj:
-          Value: true
-        l_ankle_xctqj:
-          Value: true
-        l_elbow_xctqj:
-          Value: true
-        l_hip_xctqj:
-          Value: true
-        l_knee_xctqj:
-          Value: true
-        l_p_hip_xctqj:
-          Value: true
-        l_p_shoulder_xctqj:
-          Value: true
-        l_shoulder_xctqj:
-          Value: true
-        l_wrist_xctqj:
-          Value: true
-        l_y_hip_xctqj:
-          Value: true
-        l_y_shoulder_xctqj:
-          Value: true
-        p_head_xctqj:
-          Value: true
-        r_ankle_xctqj:
-          Value: true
-        r_elbow_xctqj:
-          Value: true
-        r_head_xctqj:
-          Value: true
-        r_hip_xctqj:
-          Value: true
-        r_knee_xctqj:
-          Value: true
-        r_p_hip_xctqj:
-          Value: true
-        r_p_shoulder_xctqj:
-          Value: true
-        r_shoulder_xctqj:
-          Value: true
-        r_wrist_xctqj:
-          Value: true
-        r_y_hip_xctqj:
-          Value: true
-        r_y_shoulder_xctqj:
-          Value: true
-        torso_xctqj:
-          Value: true
-        waist_xctqj:
-          Value: true
         world:
-          Value: true
-        y_head_xctqj:
           Value: true
         yumi_base_link:
           Value: true
@@ -486,44 +421,6 @@ Visualization Manager:
       Show Names: true
       Tree:
         world:
-          camera_link:
-            camera_color_frame:
-              camera_color_optical_frame:
-                body_xctqj:
-                  l_y_hip_xctqj:
-                    l_p_hip_xctqj:
-                      l_hip_xctqj:
-                        l_knee_xctqj:
-                          l_ankle_xctqj:
-                            {}
-                  r_y_hip_xctqj:
-                    r_p_hip_xctqj:
-                      r_hip_xctqj:
-                        r_knee_xctqj:
-                          r_ankle_xctqj:
-                            {}
-                  waist_xctqj:
-                    torso_xctqj:
-                      l_y_shoulder_xctqj:
-                        l_p_shoulder_xctqj:
-                          l_shoulder_xctqj:
-                            l_elbow_xctqj:
-                              l_wrist_xctqj:
-                                {}
-                      r_head_xctqj:
-                        y_head_xctqj:
-                          p_head_xctqj:
-                            head_xctqj:
-                              {}
-                      r_y_shoulder_xctqj:
-                        r_p_shoulder_xctqj:
-                          r_shoulder_xctqj:
-                            r_elbow_xctqj:
-                              r_wrist_xctqj:
-                                {}
-            camera_depth_frame:
-              camera_depth_optical_frame:
-                {}
           yumi_base_link:
             yumi_body:
               yumi_link_1_l:
@@ -554,15 +451,15 @@ Visualization Manager:
       Value: true
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
-      Enabled: true
+      Enabled: false
       Name: InteractiveMarkers
       Show Axes: false
       Show Descriptions: true
       Show Visual Aids: false
       Update Topic: /interactive_marker/update
-      Value: true
+      Value: false
     - Class: hri_rviz/Humans
-      Enabled: true
+      Enabled: false
       Image Topic: /camera/color/image_raw
       Max Value: 1
       Median window: 5
@@ -576,7 +473,7 @@ Visualization Manager:
       Show facial landmarks: true
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
     - Class: hri_rviz/TF (HRI)
       Enabled: false
       Frame Timeout: 15
@@ -598,6 +495,15 @@ Visualization Manager:
     - Alpha: 1
       Class: hri_rviz/Skeletons 3D
       Collision Enabled: false
+      Enabled: false
+      Name: Skeletons 3D
+      TF Prefix: ""
+      Update Interval: 0
+      Value: false
+      Visual Enabled: true
+    - Attached Body Color: 150; 50; 150
+      Class: moveit_rviz_plugin/RobotState
+      Collision Enabled: false
       Enabled: true
       Links:
         All Links Enabled: true
@@ -605,150 +511,122 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        body_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        head_xctqj:
+        gripper_l_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_ankle_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        l_elbow_xctqj:
+        gripper_l_finger_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_hip_xctqj:
+        gripper_l_finger_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_knee_xctqj:
+        gripper_r_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_p_hip_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        l_p_shoulder_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        l_shoulder_xctqj:
+        gripper_r_finger_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_wrist_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        l_y_hip_xctqj:
+        gripper_r_finger_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        l_y_shoulder_xctqj:
+        yumi_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        yumi_body:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        p_head_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_ankle_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_elbow_xctqj:
+        yumi_link_1_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        r_head_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_hip_xctqj:
+        yumi_link_1_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        r_knee_xctqj:
+        yumi_link_2_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        r_p_hip_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_p_shoulder_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_shoulder_xctqj:
+        yumi_link_2_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        r_wrist_xctqj:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        r_y_hip_xctqj:
+        yumi_link_3_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        r_y_shoulder_xctqj:
+        yumi_link_3_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        torso_xctqj:
+        yumi_link_4_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        waist_xctqj:
+        yumi_link_4_r:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        y_head_xctqj:
+          Value: true
+        yumi_link_5_l:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-      Name: Skeletons 3D
-      TF Prefix: ""
-      Update Interval: 0
-      Value: true
-      Visual Enabled: true
-    - Attached Body Color: 150; 50; 150
-      Class: moveit_rviz_plugin/RobotState
-      Collision Enabled: false
-      Enabled: false
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
+          Value: true
+        yumi_link_5_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_6_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_6_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_7_l:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        yumi_link_7_r:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
       Name: RobotState
       Robot Alpha: 1
       Robot Description: robot_description
       Robot State Topic: /hri_interface
       Show All Links: true
       Show Highlights: true
-      Value: false
+      Value: true
       Visual Enabled: true
   Enabled: true
   Global Options:
@@ -766,7 +644,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.495510101318359
+      Distance: 1.1066609621047974
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -774,17 +652,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.39870598912239075
-        Y: -0.06593184173107147
-        Z: 0.39513131976127625
+        X: 0.7041492462158203
+        Y: 0.12107185274362564
+        Z: 0.3733971416950226
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.42540261149406433
+      Pitch: 0.3854033648967743
       Target Frame: yumi_base_link
-      Yaw: 2.6353046894073486
+      Yaw: 0.637131929397583
     Saved: ~
 Window Geometry:
   Displays:
@@ -800,11 +678,11 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000023200000399fc020000000bfb000000100044006900730070006c006100790073010000003d000000f2000000c900fffffffb0000000c00480075006d0061006e00730100000135000000cc0000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000207000001880000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000395000000410000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff00000000000000000000027a0000039900000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000023200000399fc020000000bfb000000100044006900730070006c006100790073010000003d000001cf000000c900fffffffb0000000c00480075006d0061006e00730000000135000000cc0000001600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000002120000017d0000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c00730047007500690100000395000000410000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000000001880000039900000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1202
+  Width: 960
   X: 0
   Y: 0
