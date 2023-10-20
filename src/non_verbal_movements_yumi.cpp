@@ -356,6 +356,7 @@ int main(int argc, char **argv)
              << "9. COME CLOSE\n"
              << "10. GO AWAY\n"
              << "11. Find Range\n"
+             << "12. Demonstrate Pointing to Object\n"
              << "0. EXIT\n"
              << "Enter your choice: ";
         cin >> choice;
@@ -440,6 +441,14 @@ int main(int argc, char **argv)
             exportPosesToCSV(filename, left_arm_hri.testPose2(rviz_visual_tools::ORANGE));
 
             break;
+
+        case 12:
+            cout << "Enter \"object id\" to point to:";
+            cin >> input;
+            right_arm_hri.demonstratepointToObject(input);
+            left_arm_hri.demonstratepointToObject(input);
+            break;
+
         case 0:
             cout << "Exiting the program...\n";
             break;

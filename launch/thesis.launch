@@ -76,7 +76,7 @@
 
   <!-- INTEL REALSENSE -->
 
-    <include file="$(find realsense2_camera)/launch/rs_camera.launch" />
+    <!-- <include file="$(find realsense2_camera)/launch/rs_camera.launch" /> -->
 
   <!-- <arg name="serial_no"           default=""/>
   <arg name="usb_port_id"         default=""/>

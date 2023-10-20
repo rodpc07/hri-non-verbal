@@ -30,6 +30,7 @@ find_package(catkin REQUIRED
     message_generation
     moveit_grasps
     hri_interface
+    hri
 )
 
 find_package(Eigen3 REQUIRED)
@@ -52,6 +53,7 @@ catkin_package(
     actionlib_msgs
     control_msgs
     moveit_grasps
+    hri
   DEPENDS
     EIGEN3
 )

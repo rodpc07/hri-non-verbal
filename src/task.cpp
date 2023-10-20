@@ -19,6 +19,8 @@
 
 #include <hri_interface/hri_interface.h>
 
+#include <hri/hri.h>
+
 using namespace std;
 
 class TaskManager

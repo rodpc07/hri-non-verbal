@@ -105,6 +105,7 @@
   <exec_depend>moveit_grasps</exec_depend>
 
   <depend>hri_interface</depend>
+  <depend>hri</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
