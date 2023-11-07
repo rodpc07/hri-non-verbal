@@ -20,6 +20,7 @@
 #include <hri_interface/hri_interface.h>
 
 #include <hri/hri.h>
+#include "planner/boardOrientation.h"
 
 using namespace std;
 
@@ -29,6 +30,8 @@ public:
     // Constructor
     TaskManager(ros::NodeHandle n) : n_(n)
     {
+        boardOrientationClient = n_.serviceClient<planner::boardOrientation>("board_orientation_srv");
+
         planning_scene_interface = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
 
         both_arms_mgi = std::make_shared<moveit::planning_interface::MoveGroupInterface>("both_arms");
@@ -127,6 +130,7 @@ public:
                  << "2. PRINT OBJECT POSE\n"
                  << "3. EXECUTE TASK 1\n"
                  << "4. EXECUTE TASK 2\n"
+                 << "5. GET BOARD ORIENTATION\n"
                  << "0. EXIT\n"
                  << "Enter your choice: ";
             cin >> choice;
@@ -274,6 +278,16 @@ public:
                 rotateObject(*planning_scene_interface, "board_B", 0, 0, 90 * (M_PI / 180));
 
                 break;
+
+            case 5:
+            {
+                planner::boardOrientation boardOrientation;
+                boardOrientationClient.call(boardOrientation);
+
+                right_arm_hri->signalRotate("board_B", Eigen::Vector3d(boardOrientation.response.x, boardOrientation.response.y, boardOrientation.response.z));
+
+                break;
+            }
             case 0:
                 cout << "Exiting the program...\n";
                 break;
@@ -286,6 +300,8 @@ public:
 
 private:
     ros::NodeHandle n_;
+
+    ros::ServiceClient boardOrientationClient;
 
     std::shared_ptr<moveit::planning_interface::PlanningSceneInterface> planning_scene_interface;
 

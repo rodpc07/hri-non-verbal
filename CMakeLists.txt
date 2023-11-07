@@ -40,6 +40,16 @@ find_package(Boost REQUIRED system filesystem date_time thread)
 #   DEPENDENCIES actionlib_msgs std_msgs trajectory_msgs control_msgs  # Or other packages containing msgs
 # )
 
+add_service_files(
+  FILES
+  boardOrientation.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   LIBRARIES
   INCLUDE_DIRS
@@ -57,6 +67,8 @@ catkin_package(
   DEPENDS
     EIGEN3
 )
+
+
 
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
 
