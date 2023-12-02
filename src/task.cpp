@@ -284,7 +284,7 @@ public:
                 planner::boardOrientation boardOrientation;
                 boardOrientationClient.call(boardOrientation);
 
-                right_arm_hri->signalRotate("board_B", Eigen::Vector3d(boardOrientation.response.x, boardOrientation.response.y, boardOrientation.response.z));
+                // right_arm_hri->signalRotate("board_B", Eigen::Vector3d(boardOrientation.response.x, boardOrientation.response.y, boardOrientation.response.z));
 
                 break;
             }

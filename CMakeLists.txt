@@ -84,3 +84,6 @@ target_link_libraries(task ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_executable(pick_and_place src/pick_and_place.cpp)
 target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
+add_executable(yumi_safe src/yumi_safe.cpp)
+target_link_libraries(yumi_safe ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
