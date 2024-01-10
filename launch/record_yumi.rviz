@@ -5,8 +5,15 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-      Splitter Ratio: 0.3480885326862335
-    Tree Height: 140
+        - /FrontCameraPub1
+        - /Static Transform Publisher1/rotation1
+        - /Static Transform Publisher1/rotation1/Euler angles1
+        - /Static Transform Publisher1/publish transform1
+        - /Static Transform Publisher2/publish transform1
+        - /Static Transform Publisher3/rotation1
+        - /Static Transform Publisher3/publish transform1
+      Splitter Ratio: 0.41649898886680603
+    Tree Height: 217
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -16,6 +23,19 @@ Panels:
     Splitter Ratio: 0.5
   - Class: rviz_visual_tools/RvizVisualToolsGui
     Name: RvizVisualToolsGui
+  - Class: rviz/Displays
+    Help Height: 70
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Static Transform Publisher1
+        - /Static Transform Publisher1/publish transform1
+        - /Static Transform Publisher2
+        - /Static Transform Publisher2/publish transform1
+        - /Static Transform Publisher3
+        - /Static Transform Publisher3/publish transform1
+      Splitter Ratio: 0.5
+    Tree Height: 371
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -41,7 +61,7 @@ Visualization Manager:
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: false
-    - Acceleration_Scaling_Factor: 0.5
+    - Acceleration_Scaling_Factor: 1
       Class: moveit_rviz_plugin/MotionPlanning
       Enabled: true
       Move Group Namespace: ""
@@ -182,7 +202,7 @@ Visualization Manager:
             Show Trail: false
             Value: true
         Loop Animation: false
-        Robot Alpha: 0.5
+        Robot Alpha: 1
         Robot Color: 150; 50; 150
         Show Robot Collision: false
         Show Robot Visual: false
@@ -349,12 +369,271 @@ Visualization Manager:
         {}
       Queue Size: 100000
       Value: false
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: false
+      Length: 0.05000000074505806
+      Name: Axes
+      Radius: 0.009999999776482582
+      Reference Frame: <Fixed Frame>
+      Show Trail: false
+      Value: false
+    - Class: rviz/InteractiveMarkers
+      Enable Transparency: true
+      Enabled: false
+      Name: InteractiveMarkers
+      Show Axes: false
+      Show Descriptions: true
+      Show Visual Aids: false
+      Update Topic: /interactive_marker/update
+      Value: false
+    - Background Color: 255; 255; 255
+      Camera Info Topic: /front_camera/camera_info
+      Class: rviz_camera_stream/CameraPub
+      Display namespace: ""
+      Enabled: true
+      Frame Rate: -1
+      Image Encoding: rgba8
+      Image Topic: /front_camera/image
+      Name: FrontCameraPub
+      Near Clip Distance: 0.009999999776482582
+      Queue Size: 2
+      Value: true
+      Visibility:
+        AmbientLight: true
+        Axes: true
+        Grid: true
+        InteractiveMarkers: true
+        LeftCameraPub: true
+        LightFront: true
+        Light_Left: true
+        Light_Middle: true
+        Light_Right: true
+        MarkerArray: true
+        MotionPlanning: true
+        RightCameraPub: true
+        Static Transform Publisher: true
+        TF: true
+        Value: true
+    - Background Color: 255; 255; 255
+      Camera Info Topic: /right_camera/camera_info
+      Class: rviz_camera_stream/CameraPub
+      Display namespace: ""
+      Enabled: false
+      Frame Rate: 60
+      Image Encoding: rgb8
+      Image Topic: /right_camera/image
+      Name: RightCameraPub
+      Near Clip Distance: 0.009999999776482582
+      Queue Size: 1000
+      Value: false
+      Visibility:
+        AmbientLight: true
+        Axes: true
+        FrontCameraPub: true
+        Grid: true
+        InteractiveMarkers: true
+        LeftCameraPub: true
+        LightFront: true
+        Light_Left: true
+        Light_Middle: true
+        Light_Right: true
+        MarkerArray: true
+        MotionPlanning: true
+        Static Transform Publisher: true
+        TF: true
+        Value: true
+    - Background Color: 255; 255; 255
+      Camera Info Topic: /left_camera/camera_info
+      Class: rviz_camera_stream/CameraPub
+      Display namespace: ""
+      Enabled: false
+      Frame Rate: 60
+      Image Encoding: rgb8
+      Image Topic: /left_camera/image
+      Name: LeftCameraPub
+      Near Clip Distance: 0.009999999776482582
+      Queue Size: 1000
+      Value: false
+      Visibility:
+        AmbientLight: true
+        Axes: true
+        FrontCameraPub: true
+        Grid: true
+        InteractiveMarkers: true
+        LightFront: true
+        Light_Left: true
+        Light_Middle: true
+        Light_Right: true
+        MarkerArray: true
+        MotionPlanning: true
+        RightCameraPub: true
+        Static Transform Publisher: true
+        TF: true
+        Value: true
+    - Class: rviz_lighting/Light
+      Diffuse Color: 150; 150; 150
+      Direction:
+        X: 0
+        Y: 0
+        Z: -1
+      Enabled: true
+      Falloff: 0
+      Light Type: Directional
+      Name: Light_Middle
+      Outer Angle: 50
+      Position:
+        X: 0
+        Y: 0
+        Z: 0
+      Reference Frame: light_middle
+      Specular Color: 0; 0; 0
+      Value: true
+    - Class: rviz_lighting/Light
+      Diffuse Color: 50; 50; 50
+      Direction:
+        X: 0
+        Y: 0
+        Z: -1
+      Enabled: true
+      Falloff: 1
+      Light Type: Directional
+      Name: Light_Left
+      Outer Angle: 0.5
+      Position:
+        X: 0
+        Y: 0
+        Z: 0
+      Reference Frame: light_left
+      Specular Color: 0; 0; 0
+      Value: true
+    - Class: rviz_lighting/Light
+      Diffuse Color: 50; 50; 50
+      Direction:
+        X: 0
+        Y: 0
+        Z: -1
+      Enabled: true
+      Falloff: 1
+      Light Type: Directional
+      Name: Light_Right
+      Outer Angle: 0.5
+      Position:
+        X: 0
+        Y: 0
+        Z: 0
+      Reference Frame: light_right
+      Specular Color: 0; 0; 0
+      Value: true
+    - Class: rviz_lighting/Light
+      Diffuse Color: 50; 50; 50
+      Direction:
+        X: 0
+        Y: 0
+        Z: 1
+      Enabled: true
+      Falloff: 1
+      Light Type: Directional
+      Name: LightFront
+      Outer Angle: 0.5
+      Position:
+        X: 0
+        Y: 0
+        Z: 0
+      Reference Frame: front_camera
+      Specular Color: 0; 0; 0
+      Value: true
+    - Class: agni_tf_tools/Static Transform Publisher
+      Enabled: true
+      Name: Static Transform Publisher
+      Value: true
+      adapt transformation: false
+      marker type:
+        Value: 6 DoF handles
+        marker scale: 0.20000000298023224
+      parent frame: <Fixed Frame>
+      publish transform:
+        Value: true
+        child frame: light_middle
+      rotation:
+        axes: rpy
+        e1: 0
+        e2: 75
+        e3: 0
+      translation:
+        X: 1
+        Y: 0
+        Z: 1
+    - Class: agni_tf_tools/Static Transform Publisher
+      Enabled: true
+      Name: Static Transform Publisher
+      Value: true
+      adapt transformation: false
+      marker type:
+        Value: 6 DoF handles
+        marker scale: 0.20000000298023224
+      parent frame: <Fixed Frame>
+      publish transform:
+        Value: true
+        child frame: light_left
+      rotation:
+        axes: rpy
+        e1: 45
+        e2: 0
+        e3: 0
+      translation:
+        X: 1
+        Y: -1
+        Z: 1
+    - Class: agni_tf_tools/Static Transform Publisher
+      Enabled: true
+      Name: Static Transform Publisher
+      Value: true
+      adapt transformation: false
+      marker type:
+        Value: 6 DoF handles
+        marker scale: 0.20000000298023224
+      parent frame: <Fixed Frame>
+      publish transform:
+        Value: true
+        child frame: light_right
+      rotation:
+        axes: rpy
+        e1: -45
+        e2: 0
+        e3: 0
+      translation:
+        X: 1
+        Y: 1
+        Z: 1
+    - Class: rviz/TF
+      Enabled: false
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Alpha: 1
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        {}
+      Update Interval: 0
+      Value: false
+    - Class: rviz_lighting/AmbientLight
+      Color: 200; 200; 200
+      Enabled: true
+      Name: AmbientLight
+      Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
-    Default Light: true
-    Fixed Frame: yumi_base_link
-    Frame Rate: 60
+    Background Color: 255; 255; 255
+    Default Light: false
+    Fixed Frame: world
+    Frame Rate: 120
   Name: root
   Tools:
     - Class: rviz/Interact
@@ -365,7 +644,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.8760502338409424
+      Distance: 2.1810522079467773
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -373,35 +652,35 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.40809401869773865
-        Y: 0.07108577340841293
-        Z: 0.2783028781414032
+        X: 0.3731279671192169
+        Y: 0.031885504722595215
+        Z: 0.6522505283355713
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4604030251502991
+      Pitch: 0.5597971677780151
       Target Frame: yumi_base_link
-      Yaw: 6.255334377288818
+      Yaw: 6.24364709854126
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: true
-  Height: 678
+    collapsed: false
+  Height: 1011
   Help:
     collapsed: false
-  Hide Left Dock: true
+  Hide Left Dock: false
   Hide Right Dock: false
   MotionPlanning:
-    collapsed: true
+    collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000001f30000024cfc020000000bfb000000100044006900730070006c006100790073000000003d000000c9000000c900fffffffb0000000c00480075006d0061006e00730000000135000000cc0000000000000000fb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000015e0000005b0000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e0067000000010c0000017d0000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c007300470075006902000001cd000002c0000001f300000043fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff00000000000000000000030f0000024c00000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000026a00000399fc020000000cfb000000100044006900730070006c006100790073010000003d00000116000000c900fffffffb0000000c00480075006d0061006e00730000000135000000cc0000000000000000fb0000000800480065006c0070000000025a000000bb0000006e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e00670100000374000001890000000000000000fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c006900640065007200000001b9000000410000001600000016fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000001590000021d0000017d00fffffffb0000000a0056006900650077007300000002eb000000a4000000a400fffffffb00000024005200760069007a00560069007300750061006c0054006f006f006c0073004700750069010000037c0000005a0000004100fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb000000100044006900730070006c00610079007300000002f0000000df000000c900ffffff000005100000039900000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RvizVisualToolsGui:
     collapsed: false
   Views:
     collapsed: false
-  Width: 783
-  X: 1104
-  Y: 25
+  Width: 1920
+  X: 0
+  Y: 0

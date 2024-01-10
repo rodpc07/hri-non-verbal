@@ -30,6 +30,7 @@ find_package(catkin REQUIRED
     message_generation
     moveit_grasps
     hri_interface
+    rviz_camera_stream
     hri
 )
 
@@ -64,6 +65,7 @@ catkin_package(
     control_msgs
     moveit_grasps
     hri
+    rviz_camera_stream
   DEPENDS
     EIGEN3
 )
@@ -75,15 +77,18 @@ include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_
 add_executable(non_verbal_movements_yumi src/non_verbal_movements_yumi.cpp)
 target_link_libraries(non_verbal_movements_yumi ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(interactive_marker src/interactive_marker.cpp)
-target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+# add_executable(interactive_marker src/interactive_marker.cpp)
+# target_link_libraries(interactive_marker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(task src/task.cpp)
 target_link_libraries(task ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(pick_and_place src/pick_and_place.cpp)
-target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(task_objects src/task_objects.cpp)
+target_link_libraries(task_objects ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(yumi_safe src/yumi_safe.cpp)
-target_link_libraries(yumi_safe ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+# add_executable(pick_and_place src/pick_and_place.cpp)
+# target_link_libraries(pick_and_place ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+# add_executable(yumi_safe src/yumi_safe.cpp)
+# target_link_libraries(yumi_safe ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 

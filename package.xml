@@ -106,6 +106,7 @@
 
   <depend>hri_interface</depend>
   <depend>hri</depend>
+  <depend>rviz_camera_stream</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
