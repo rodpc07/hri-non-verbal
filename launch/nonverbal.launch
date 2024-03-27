@@ -1,6 +1,9 @@
 <launch>
 
   <node pkg="tf" type="static_transform_publisher" name="camera_broadcaster" args="1.75 0 0.7 1.5707 0 -1.9198  world human 10" />
+  <node pkg="tf" type="static_transform_publisher" name="light_middle" args="1 0 1 0 1.3089 0  world light_middle 10" />
+  <node pkg="tf" type="static_transform_publisher" name="light_left" args="1 -1 1 0 0 0.7854  world light_left 10" />
+  <node pkg="tf" type="static_transform_publisher" name="light_right" args="1 1 1 0 0 -0.7854  world light_right 10" />
 
   <!-- specify the planning pipeline -->
   <arg name="pipeline" default="ompl" />
